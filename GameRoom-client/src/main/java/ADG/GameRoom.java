@@ -35,25 +35,39 @@ public class GameRoom {
         });
 
         // Delete room button
-        Button deleteRoomButton = new Button("Delete Room");
-        roomPanel.add(deleteRoomButton);
-
-        deleteRoomButton.addClickHandler(event -> {
-            boolean deleteRoom = Window.confirm("Are you sure you want to delete this room?");
-            if(deleteRoom) {
-                gameRoomService.deleteRoom(roomName, new AsyncCallback<Void>() {
+        // only display for the user that created it
+        String playerId = Cookie.getPlayerId();
+        gameRoomService.getRoom(roomName, new AsyncCallback<Room>() {
                     @Override
-                    public void onFailure(Throwable throwable) {}
+                    public void onFailure(Throwable throwable) {
+                    }
 
                     @Override
-                    public void onSuccess(Void unused) {
-                        RootPanel.get().clear();
-                        GameLobby gameLobby = new GameLobby();
-                        gameLobby.onModuleLoad();
+                    public void onSuccess(Room room) {
+                        if(room.getCreatedByUserId().equals(playerId)){
+                            Button deleteRoomButton = new Button("Delete Room");
+                            roomPanel.add(deleteRoomButton);
+
+                            deleteRoomButton.addClickHandler(event -> {
+                                boolean deleteRoom = Window.confirm("Are you sure you want to delete this room?");
+                                if(deleteRoom) {
+                                    gameRoomService.deleteRoom(roomName, new AsyncCallback<Void>() {
+                                        @Override
+                                        public void onFailure(Throwable throwable) {}
+
+                                        @Override
+                                        public void onSuccess(Void unused) {
+                                            RootPanel.get().clear();
+                                            GameLobby gameLobby = new GameLobby();
+                                            gameLobby.onModuleLoad();
+                                        }
+                                    });
+                                }
+                                RootPanel.get().add(roomPanel);
+                            });
+                        }
                     }
                 });
-            }
-        });
 
         RootPanel.get().add(roomPanel);
     }

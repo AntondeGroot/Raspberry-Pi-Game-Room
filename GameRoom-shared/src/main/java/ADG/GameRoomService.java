@@ -1,13 +1,15 @@
 package ADG;
 
-import com.google.gwt.http.client.Response;
 import com.google.gwt.user.client.rpc.RemoteService;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
+
+import java.util.ArrayList;
 
 
 @RemoteServiceRelativePath("gameroom")
 public interface GameRoomService extends RemoteService {
-    RoomResponse getRooms();
-    String createRoom(String name);
-    void deleteRoom(String roomId);
+    ArrayList<Room> getRooms();
+    Room getRoom(String roomName);
+    String createRoom(Room room);
+    void deleteRoom(String roomName);
 }
