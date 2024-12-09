@@ -1,15 +1,12 @@
 package ADG;
 
 import com.google.gwt.user.client.rpc.IsSerializable;
-
-import java.io.Serializable;
 import java.util.Objects;
 
 public class Room implements IsSerializable {
-    private Long id;
     private String createdByUserId;
     private String name;
-    private Integer nrOfPlayers;
+    private Integer nrOfPlayers = 0;
 
     public Room() {} // Default constructor
 
