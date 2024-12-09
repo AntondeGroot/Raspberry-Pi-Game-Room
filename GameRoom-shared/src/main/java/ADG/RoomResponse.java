@@ -2,7 +2,6 @@ package ADG;
 
 import com.google.gwt.user.client.rpc.IsSerializable;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class RoomResponse implements IsSerializable {

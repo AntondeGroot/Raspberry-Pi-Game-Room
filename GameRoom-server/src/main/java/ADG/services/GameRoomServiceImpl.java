@@ -1,42 +1,50 @@
 package ADG.services;
 
 import ADG.GameRoomService;
-import ADG.RoomResponse;
-import com.google.gwt.http.client.Header;
-import com.google.gwt.http.client.Response;
+import ADG.Room;
 import com.google.gwt.user.server.rpc.jakarta.RemoteServiceServlet;
 import jakarta.servlet.annotation.WebServlet;
 
 import java.util.ArrayList;
+import java.util.Optional;
 
 @SuppressWarnings("serial")
 @WebServlet("/app/gameroom")
 public class GameRoomServiceImpl extends RemoteServiceServlet implements GameRoomService{
-    ArrayList<String> rooms = new ArrayList<>();
+    private ArrayList<Room> rooms = new ArrayList<>();
 
     @Override
-    public RoomResponse getRooms() {
-        RoomResponse gameRooms = new RoomResponse();
-        gameRooms.setRoomNames(rooms);
-        return gameRooms;
+    public ArrayList<Room> getRooms() {
+//        RoomResponse gameRooms = new RoomResponse();
+//        gameRooms.setRoomNames(rooms);
+        return rooms;
     }
 
     @Override
-    public String createRoom(String name) throws IllegalArgumentException {
-        if (rooms.contains(name) || name.isBlank()) {
+    public Room getRoom(String roomName) {
+        Optional<Room> result = rooms.stream().filter(room -> room.getName().equals(roomName)).findFirst();
+        if(result.isPresent()) {
+            return result.get();
+        }
+        return new Room();
+    }
+
+    @Override
+    public String createRoom(Room room) throws IllegalArgumentException {
+        if (rooms.contains(room) || room.getName().isBlank()) {
             throw new IllegalArgumentException();
         }
 
-        rooms.add(name);
-        return name;
+        rooms.add(room);
+        return room.getName();
     }
 
     @Override
     public void deleteRoom(String roomName) {
-        if (rooms.contains(roomName)){
-            rooms.remove(roomName);
+        Optional<Room> result = rooms.stream().filter(room -> room.getName().equals(roomName)).findFirst();
+        if(result.isPresent()) {
+            Room foundRoom = result.get();
+            rooms.remove(foundRoom);
         }
     }
-
-
 }

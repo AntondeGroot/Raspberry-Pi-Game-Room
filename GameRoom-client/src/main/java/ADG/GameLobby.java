@@ -17,7 +17,7 @@ public class GameLobby implements EntryPoint {
     private VerticalPanel roomListPanel = new VerticalPanel();
     private TextBox roomNameInput = new TextBox();
     private Button createRoomButton = new Button("Create Room");
-    private ArrayList<String> roomNames = new ArrayList<>();
+    private ArrayList<Room> rooms = new ArrayList<>();
 
 
     /**
@@ -26,6 +26,8 @@ public class GameLobby implements EntryPoint {
     private final GameRoomServiceAsync gameRoomService = GWT.create(GameRoomService.class);
 
     public void onModuleLoad() {
+        String playerid = Cookie.getPlayerId();
+
         RootPanel.get().add(mainPanel);
 
         // Title
@@ -49,7 +51,8 @@ public class GameLobby implements EntryPoint {
             @Override
             public void onClick(ClickEvent event) {
                 String roomName = roomNameInput.getText().trim();
-                gameRoomService.createRoom(roomName, new AsyncCallback<String>() {
+                Room room = new Room(roomName, playerid);
+                gameRoomService.createRoom(room, new AsyncCallback<String>() {
                     @Override
                     public void onFailure(Throwable throwable) {
                         Window.alert("Room name can not be empty or a duplicate");
@@ -57,7 +60,7 @@ public class GameLobby implements EntryPoint {
 
                     @Override
                     public void onSuccess(String s) {
-                        navigateToRoom(roomName);
+                        navigateToRoom(room);
                     }
                 });
             }
@@ -73,42 +76,48 @@ public class GameLobby implements EntryPoint {
         timer.scheduleRepeating(200);
     }
 
-    private void updateRoomList(RoomResponse roomResponse) {
-        if(!roomNames.equals(roomResponse.getRoomNames()) || roomNames.isEmpty()){
+    private void updateRoomList(ArrayList<Room> roomsResponse) {
+        if(!rooms.equals(roomsResponse)){
+            GWT.log("updating room list");
+            GWT.log(rooms.toString());
+            GWT.log(roomsResponse.toString());
+
             roomListPanel.clear();
-            for (String roomName : roomResponse.getRoomNames()) {
+            for (Room room : roomsResponse) {
                 Button joinButton = new Button("Join");
                 HorizontalPanel roomPanel = new HorizontalPanel();
-                roomPanel.add(new Label(roomName));
+                roomPanel.add(new Label(room.getName()));
                 roomPanel.add(joinButton);
                 roomListPanel.add(roomPanel);
 
                 joinButton.addClickHandler(new ClickHandler() {
                     @Override
                     public void onClick(ClickEvent event) {
-                        GWT.log("navigate to room " + roomName);
-                        navigateToRoom(roomName);
+                        GWT.log("navigate to room " + room.getName());
+                        navigateToRoom(room);
                     }
                 });
+
+                rooms = roomsResponse;
             }
         }
     }
 
-    private void navigateToRoom(String roomName) {
+    private void navigateToRoom(Room room) {
         RootPanel.get().clear();
-        GameRoom gameRoom = new GameRoom(roomName);
+        GameRoom gameRoom = new GameRoom(room.getName());
         gameRoom.load();
     }
 
     public void pollServerForRooms(){
 
-        gameRoomService.getRooms(new AsyncCallback<RoomResponse>(){
+        gameRoomService.getRooms(new AsyncCallback<ArrayList<Room>>(){
             @Override
             public void onFailure(Throwable throwable) {}
 
             @Override
-            public void onSuccess(RoomResponse roomResponse) {
-                updateRoomList(roomResponse);
+            public void onSuccess(ArrayList<Room> rooms) {
+                updateRoomList(rooms);
             }
         });
     }

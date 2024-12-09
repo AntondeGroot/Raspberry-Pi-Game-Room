@@ -2,11 +2,16 @@ package ADG;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
+import java.util.ArrayList;
+
 public interface GameRoomServiceAsync {
-    void getRooms(AsyncCallback<RoomResponse> asyncCallback)
+    void getRooms(AsyncCallback<ArrayList<Room>> asyncCallback)
             throws IllegalArgumentException;
 
-    void createRoom(String name, AsyncCallback<String> asyncCallback)
+    void getRoom(String roomName, AsyncCallback<Room> asyncCallback)
+        throws IllegalArgumentException;
+
+    void createRoom(Room room, AsyncCallback<String> asyncCallback)
             throws IllegalArgumentException;
 
     void deleteRoom(String name, AsyncCallback<Void> asyncCallback)
