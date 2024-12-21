@@ -6,6 +6,7 @@ import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.RootPanel;
 
@@ -119,12 +120,11 @@ public class GameRoomPresenter implements Presenter{
             public void onSuccess(Room room) {
                 HashMap<String, String> serverUserNames = room.getPlayerNames();
                 HashMap<String, String> serverUserProfiles =  room.getPlayerProfiles();
-                if(!serverUserNames.equals(userNames)){
-                    // || !serverUserProfiles.equals(userProfiles)
+                if(!serverUserNames.equals(userNames) || !serverUserProfiles.equals(userProfiles)){
                     userNames = serverUserNames;
                     userProfiles = serverUserProfiles;
                     GWT.log("drawing player names: "+serverUserNames);
-                    drawPlayerList(userNames, userProfiles);
+                    drawPlayerList();
                 }
                 GWT.log(""+!serverUserNames.equals(userNames));
                 GWT.log("servernames: "+serverUserNames);
@@ -146,15 +146,21 @@ public class GameRoomPresenter implements Presenter{
         });
     }
 
-    public void drawPlayerList(HashMap<String, String> userNames, HashMap<String, String> userProfiles) {
+    public void drawPlayerList() {
         view.getPlayerPanel().clear();
         for (String userId : userNames.keySet()) {
             HorizontalPanel playerIndexPanel = new HorizontalPanel();
             String playerName = userNames.get(userId);
-            String userProfile = userProfiles.get(userId);
-            playerIndexPanel.add(new Label(playerName));
-            playerIndexPanel.add(new Label(".  -  ."));
-            playerIndexPanel.add(new Label(userProfile));
+            String playerProfileUrl = userProfiles.get(userId);
+            // create image
+            Image profilePic = new Image(playerProfileUrl);
+            profilePic.setStyleName("profile-pic-small");
+            profilePic.setWidth("50px");
+            // create player label
+            playerIndexPanel.add(profilePic);
+            Label playerNameLabel = new Label(playerName);
+            playerIndexPanel.add(playerNameLabel);
+
             view.getPlayerPanel().add(playerIndexPanel);
         }
     }

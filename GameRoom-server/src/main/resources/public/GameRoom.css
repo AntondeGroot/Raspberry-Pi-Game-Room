@@ -45,12 +45,19 @@ h1 {
 
 /* Profile Picture Images */
 .profile-pic {
-  width: 100px;
+  width: 100px;/* width and height does not work*/
   height: 100px;
   border: 2px solid #ddd;
   border-radius: 8px;
   cursor: pointer;
   transition: 0.2s;
+}
+
+.profile-pic-small {
+  width: 50px; /* width and height does not work*/
+  height: 50px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
 }
 
 .profile-pic:hover {
