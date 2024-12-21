@@ -192,7 +192,10 @@ public class GameLobbyPresenter implements Presenter{
      */
     private void navigateToRoom(Room room) {
         RootPanel.get().clear();
-        presenterManager.switchToGameRoom(room);
+        // Implement
+        // when user is not in a room yet, go to Character Selection
+        // reserve his place in the room
+        presenterManager.switchToCharacterSelection(room);
         gameRoomService.addPlayerIdToRoom(Cookie.getPlayerId(), room, new AsyncCallback<Void>() {
             @Override
             public void onFailure(Throwable throwable) {
@@ -202,5 +205,7 @@ public class GameLobbyPresenter implements Presenter{
             public void onSuccess(Void v) {
             }
         });
+
+        // else go to Room directly
     }
 }

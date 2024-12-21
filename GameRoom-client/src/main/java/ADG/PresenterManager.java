@@ -7,9 +7,11 @@ public class PresenterManager {
     // Views
     private final GameLobbyView lobbyView = new GameLobbyView();
     private final GameRoomView roomView = new GameRoomView();
+    private final CharacterSelectionView characterSelectionView = new CharacterSelectionView();
     // Presenters
     private GameLobbyPresenter lobbyPresenter;
     private GameRoomPresenter roomPresenter;
+    private CharacterSelectionPresenter characterSelectionPresenter;
     private Presenter currentPresenter;
 
     public void switchToGameRoom(Room room) {
@@ -24,6 +26,13 @@ public class PresenterManager {
             lobbyPresenter = new GameLobbyPresenter(lobbyView, this);
         }
         switchPresenter(lobbyPresenter, lobbyView);
+    }
+
+    public void switchToCharacterSelection(Room room){
+        if(characterSelectionPresenter == null) {
+            characterSelectionPresenter = new CharacterSelectionPresenter(characterSelectionView, room, this);
+        }
+        switchPresenter(characterSelectionPresenter, characterSelectionView);
     }
 
     private void switchPresenter(Presenter newPresenter, Widget newView) {
