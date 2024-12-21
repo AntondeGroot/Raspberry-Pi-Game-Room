@@ -3,18 +3,20 @@ package ADG;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.RootPanel;
 
 public class GameRoomPresenter implements Presenter{
 
+    private final GameRoomServiceAsync gameRoomService = GWT.create(GameRoomService.class);
     private Timer playerPollingTimer;
     private final GameRoomView view;
-    private Room model;
+    private Room room;
     private final PresenterManager presenterManager;
 
     public GameRoomPresenter(GameRoomView view, Room model, PresenterManager presenterManager) {
         this.view = view;
-        this.model = model;
+        this.room = model;
         this.presenterManager = presenterManager;
     }
 
@@ -51,6 +53,7 @@ public class GameRoomPresenter implements Presenter{
 //                // Successfully removed player from room
 //            }
 //        });
+        removePlayerFromRoom();
         presenterManager.switchToLobby();
     }
 
@@ -91,5 +94,17 @@ public class GameRoomPresenter implements Presenter{
 //                GWT.log("users = "+userNames.toString());
 //            }
 //        });
+    }
+
+    private void removePlayerFromRoom() {
+        gameRoomService.removePlayerFromRoom(Cookie.getPlayerId(), room, new AsyncCallback<Void>() {
+            @Override
+            public void onFailure(Throwable throwable) {
+            }
+
+            @Override
+            public void onSuccess(Void v) {
+            }
+        });
     }
 }

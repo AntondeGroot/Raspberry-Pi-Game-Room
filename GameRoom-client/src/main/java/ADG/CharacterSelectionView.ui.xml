@@ -1,0 +1,15 @@
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+             xmlns:g="urn:import:com.google.gwt.user.client.ui">
+    <g:VerticalPanel>
+        <g:Label text="Character Selection" styleName="title"/>
+        <g:HorizontalPanel>
+            <g:Label text="Enter Username:"/>
+            <g:TextBox ui:field="usernameInput"/>
+        </g:HorizontalPanel>
+        <g:Label text="Select Your Profile Picture:"/>
+        <g:FlowPanel ui:field="profilePicGrid" styleName="profile-pic-grid"/>
+        <g:Label ui:field="selectedProfileLabel" text="No profile picture selected"/>
+        <g:Button ui:field="confirmButton" text="Confirm"/>
+        <g:Button ui:field="cancelButton" text="Back to Lobby"/>
+    </g:VerticalPanel>
+</ui:UiBinder>

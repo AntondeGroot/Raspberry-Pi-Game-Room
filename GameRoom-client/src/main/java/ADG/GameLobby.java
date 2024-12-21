@@ -81,7 +81,7 @@ public class GameLobby implements EntryPoint {
 
                     @Override
                     public void onSuccess(String result) {
-                        navigateToCharacterSelection(room);
+//                        navigateToCharacterSelection(room);
                     }
                 });
             }
@@ -141,7 +141,7 @@ public class GameLobby implements EntryPoint {
         // Set the action for the join button
         joinButtonColumn.setFieldUpdater((index, room, value) -> {
             GWT.log("Navigating to room: " + room.getName());
-            navigateToCharacterSelection(room);
+//            navigateToCharacterSelection(room);
         });
 
 
@@ -172,24 +172,6 @@ public class GameLobby implements EntryPoint {
             list.clear();
             list.addAll(roomsResponse);
         }
-    }
-
-    /**
-     * Navigate to the selected room.
-     */
-    private void navigateToCharacterSelection(Room room) {
-        RootPanel.get().clear();
-        CharacterSelection characterSelection = new CharacterSelection(room);
-        characterSelection.load();
-        gameRoomService.addPlayerIdToRoom(Cookie.getPlayerId(), room, new AsyncCallback<Void>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-            }
-
-            @Override
-            public void onSuccess(Void v) {
-            }
-        });
     }
 
     /**
