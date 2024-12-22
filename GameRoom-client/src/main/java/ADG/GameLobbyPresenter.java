@@ -71,6 +71,7 @@ public class GameLobbyPresenter implements Presenter{
                     public void onSuccess(Room result) {
                         Window.alert("Room created successfully.");
                         navigateToCharacterSelection(room);
+                        view.getRoomNameInput().setText("");
                     }
                 });
             }
