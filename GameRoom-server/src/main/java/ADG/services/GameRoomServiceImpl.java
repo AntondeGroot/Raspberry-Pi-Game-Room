@@ -26,9 +26,8 @@ public class GameRoomServiceImpl extends RemoteServiceServlet implements GameRoo
                 throw new IllegalArgumentException();
             }
             return result.get();
-        }else{
-            throw new IllegalArgumentException("roomId not found : " + roomId);
         }
+        return null;
     }
 
     @Override
@@ -87,4 +86,5 @@ public class GameRoomServiceImpl extends RemoteServiceServlet implements GameRoo
             }
         }
     }
+
 }

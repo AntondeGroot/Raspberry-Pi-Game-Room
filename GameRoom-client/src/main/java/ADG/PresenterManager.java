@@ -16,10 +16,11 @@ public class PresenterManager {
     private Presenter currentPresenter;
     // Services
     private final GameRoomServiceAsync gameRoomServiceAsync = GWT.create(GameRoomService.class);
+    private final MessageServiceAsync messageServiceAsync = GWT.create(MessageService.class);
 
     public void switchToGameRoom(Room room) {
         if (roomPresenter == null) {
-            roomPresenter = new GameRoomPresenter(roomView, room, this, gameRoomServiceAsync);
+            roomPresenter = new GameRoomPresenter(roomView, room, this, gameRoomServiceAsync, messageServiceAsync);
         }
         switchPresenter(roomPresenter, roomView);
     }
