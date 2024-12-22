@@ -1,6 +1,7 @@
 package ADG;
 
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.i18n.client.DateTimeFormat;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
@@ -10,11 +11,14 @@ import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.RootPanel;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 
 public class GameRoomPresenter implements Presenter{
 
     private final GameRoomServiceAsync gameRoomService;
+    private final MessageServiceAsync messageService;
     private Timer playerPollingTimer;
     private final GameRoomView view;
     private Room room;
@@ -22,11 +26,12 @@ public class GameRoomPresenter implements Presenter{
     private HashMap<String, String> userNames = new HashMap<>();
     private HashMap<String, String> userProfiles = new HashMap<>();
 
-    public GameRoomPresenter(GameRoomView view, Room model, PresenterManager presenterManager, GameRoomServiceAsync gameRoomService) {
+    public GameRoomPresenter(GameRoomView view, Room model, PresenterManager presenterManager, GameRoomServiceAsync gameRoomService, MessageServiceAsync messageService) {
         this.view = view;
         this.room = model;
         this.presenterManager = presenterManager;
         this.gameRoomService = gameRoomService;
+        this.messageService = messageService;
     }
 
     @Override
@@ -49,6 +54,26 @@ public class GameRoomPresenter implements Presenter{
         view.getLeaveRoomButton().addClickHandler(event -> leaveRoom());
         view.getDeleteRoomButton().addClickHandler(event -> deleteRoom());
         view.getDeleteRoomButton().setVisible(displayDeleteButton());
+        view.getSendMessageButton().addClickHandler(event -> sendMessage());
+    }
+
+    private void sendMessage() {
+        String inputText = view.getMessageInputField().getText();
+        if(!inputText.isEmpty()){
+            Message message = new Message(getCurrentTime(), userNames.get(Cookie.getPlayerId()), inputText);
+            messageService.sendMessage(room.getId(), message, new AsyncCallback<Void>() {
+                @Override
+                public void onFailure(Throwable throwable) {
+
+                }
+
+                @Override
+                public void onSuccess(Void v) {
+
+                }
+            });
+            view.getMessageInputField().setText("");
+        }
     }
 
     private void leaveRoom() {
@@ -97,12 +122,13 @@ public class GameRoomPresenter implements Presenter{
     }
 
     public void startPollingServer(){
-        // Poll the server every 2 seconds for updated room list
+        // Poll the server every 0.5 seconds for updated room list
         if(playerPollingTimer == null){
             playerPollingTimer = new Timer() {
                 @Override
                 public void run() {
                     pollServerForPlayers();
+                    pollServerForMessages();
                 }
             };
             playerPollingTimer.scheduleRepeating(500);
@@ -131,6 +157,27 @@ public class GameRoomPresenter implements Presenter{
                 GWT.log("servernames: "+serverUserNames);
                 GWT.log("users = " + userNames.toString());
                 GWT.log("Room = " + room);
+            }
+        });
+    }
+
+    public void pollServerForMessages() {
+        GWT.log("polling server for messages");
+        messageService.getMessages(room.getId(), new AsyncCallback<ArrayList<Message>>() {
+            @Override
+            public void onFailure(Throwable throwable) {
+                GWT.log(throwable.getMessage());
+            }
+
+            @Override
+            public void onSuccess(ArrayList<Message> messages) {
+                GWT.log("messages = "+messages);
+                StringBuilder output = new StringBuilder();
+                for(Message message : messages){
+                    output.append(message);
+                    output.append("\n");
+                }
+                view.getMessageDisplayField().setText(output.toString());
             }
         });
     }
@@ -164,5 +211,16 @@ public class GameRoomPresenter implements Presenter{
 
             view.getPlayerPanel().add(playerIndexPanel);
         }
+    }
+
+    public static String getCurrentTime() {
+        // Get the current date and time
+        Date currentDate = new Date();
+
+        // Format the time as "HH:mm"
+        DateTimeFormat timeFormat = DateTimeFormat.getFormat("HH:mm");
+
+        // Return the formatted time as a string
+        return timeFormat.format(currentDate);
     }
 }
