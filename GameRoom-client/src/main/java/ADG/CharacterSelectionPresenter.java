@@ -34,19 +34,8 @@ public class CharacterSelectionPresenter implements Presenter {
     }
 
     private void bind() {
-        view.getConfirmButton().addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                onConfirm();
-            }
-        });
-
-        view.getCancelButton().addClickHandler(new ClickHandler() {
-            @Override
-            public void onClick(ClickEvent event) {
-                onBackToLobby();
-            }
-        });
+        view.getConfirmButton().addClickHandler(event -> onConfirm());
+        view.getCancelButton().addClickHandler(event -> onBackToLobby());
     }
 
     private void loadProfilePictures() {
@@ -78,15 +67,14 @@ public class CharacterSelectionPresenter implements Presenter {
     private void onConfirm() {
         String username = view.getUsernameInput().getText().trim();
         if (username.isEmpty()) {
-            Window.alert("Please enter a username.");
+            view.showAlert("Please enter a username.");
             return;
         }
         if (selectedProfilePicUrl == null) {
-            Window.alert("Please select a profile picture.");
+            view.showAlert("Please select a profile picture.");
             return;
         }
 
-        Window.alert("Username: " + username + "\nProfile Picture: " + selectedProfilePicUrl);
         presenterManager.switchToGameRoom(room);
         gameRoomService.setUsernameAndProfile(room, Cookie.getPlayerId() , username, selectedProfilePicUrl, new AsyncCallback<Void>() {
             @Override
