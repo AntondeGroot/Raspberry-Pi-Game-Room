@@ -2,8 +2,8 @@
 <ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
              xmlns:g="urn:import:com.google.gwt.user.client.ui"
              xmlns:c="urn:import:com.google.gwt.user.cellview.client">
-    <g:VerticalPanel>
-        <g:HTMLPanel>
+    <g:VerticalPanel width="100%" styleName="roomMainPanel">
+        <g:HTMLPanel width="100%">
             <h1 ui:field="roomTitle"/>
         </g:HTMLPanel>
         <g:VerticalPanel ui:field="playerPanel"/>
@@ -17,7 +17,7 @@
                 <g:SimplePanel styleName="custom-hr" />
                 <g:TextArea ui:field="messageDisplayField" styleName="MessageDisplayField" enabled="false"/>
                 <g:HorizontalPanel>
-                    <g:TextArea ui:field="messageInputField" styleName="MessageInputField"/>
+                    <g:TextBox ui:field="messageInputField" styleName="MessageInputField"/>
                     <g:Button ui:field="sendMessageButton" text="Send" styleName="sendButton"/>
                 </g:HorizontalPanel>
             </g:VerticalPanel>
