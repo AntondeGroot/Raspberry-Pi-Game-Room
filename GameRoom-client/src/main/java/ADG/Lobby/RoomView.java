@@ -47,7 +47,7 @@ public class RoomView extends Composite {
     TextArea messageDisplayField;
 
     @UiField
-    TextArea messageInputField;
+    TextBox messageInputField;
 
     public RoomView() {
         // Call UiBinder to initialize the layout
@@ -70,7 +70,7 @@ public class RoomView extends Composite {
 
     public TextArea getMessageDisplayField() {return messageDisplayField;}
 
-    public TextArea getMessageInputField() {return messageInputField;}
+    public TextBox getMessageInputField() {return messageInputField;}
 
     public Button getSendMessageButton() {return sendMessageButton;}
 

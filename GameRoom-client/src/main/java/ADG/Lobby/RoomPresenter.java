@@ -7,6 +7,7 @@ import ADG.Utils.PollingService;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.*;
 import com.google.gwt.json.client.*;
+import com.google.gwt.event.dom.client.KeyCodes;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -51,6 +52,11 @@ public class RoomPresenter implements Presenter {
         roomView.getDeleteRoomButton().addClickHandler(event -> deleteRoom());
         roomView.getStartGameButton().addClickHandler(event -> startGame());
         roomView.getSendMessageButton().addClickHandler(event -> sendMessage());
+        roomView.getMessageInputField().addKeyDownHandler(event -> {
+            if (event.getNativeKeyCode() == KeyCodes.KEY_ENTER) {
+                sendMessage();
+            }
+        });
 
         roomView.updateCreatorControls(room);
     }
