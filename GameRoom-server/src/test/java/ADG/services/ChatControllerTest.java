@@ -69,7 +69,7 @@ class ChatControllerTest {
                 .content(body));
 
         mockMvc.perform(get("/chat/" + roomId))
-                .andExpect(jsonPath("$[0].timestamp", matchesPattern("\\d{2}:\\d{2}")));
+                .andExpect(jsonPath("$[0].timestampUTC", matchesPattern("\\d{2}:\\d{2}")));
     }
 
     @Test

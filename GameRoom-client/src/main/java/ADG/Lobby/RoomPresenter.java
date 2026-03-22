@@ -4,6 +4,7 @@ import ADG.*;
 import ADG.Utils.ChatCipher;
 import ADG.Utils.Cookie;
 import ADG.Utils.PollingService;
+import ADG.Utils.TimeUtils;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.shared.HandlerRegistration;
 import com.google.gwt.http.client.*;
@@ -184,10 +185,10 @@ public class RoomPresenter implements Presenter {
                     for (int i = 0; i < arr.size(); i++) {
                         JSONObject m = arr.get(i).isObject();
                         if (m == null) continue;
-                        String timestamp = m.get("timestamp").isString().stringValue();
+                        String timestampUTC = m.get("timestampUTC").isString().stringValue();
                         String sender    = m.get("sender").isString().stringValue();
                         String encrypted = m.get("message").isString().stringValue();
-                        decrypted.add(new Message(timestamp, sender,
+                        decrypted.add(new Message(TimeUtils.convertUTCToLocal(timestampUTC), sender,
                                 ChatCipher.decrypt(encrypted, room.getId())));
                     }
                     roomView.refreshMessages(decrypted);
