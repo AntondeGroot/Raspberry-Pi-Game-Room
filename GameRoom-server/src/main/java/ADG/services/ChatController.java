@@ -1,6 +1,7 @@
 package ADG.services;
 
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,7 +27,8 @@ public class ChatController {
         Map<String, String> entry = new LinkedHashMap<>();
         entry.put("sender", body.getOrDefault("sender", ""));
         entry.put("message", body.getOrDefault("message", ""));
-        entry.put("timestamp", LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+        String timestampUTC = LocalTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("HH:mm"));
+        entry.put("timestampUTC", timestampUTC);
         messages.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>()).add(entry);
         return ResponseEntity.status(201).build();
     }
