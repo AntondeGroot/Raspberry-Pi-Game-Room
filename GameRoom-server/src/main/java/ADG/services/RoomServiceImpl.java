@@ -203,20 +203,28 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 }
                 String sessionId = sessionResponse.get("sessionId").toString();
 
-                // 2. Add each player — reuse their GameRoom playerId so no mapping is needed
-                for (Map.Entry<String, String> entry : room1.getPlayerNames().entrySet()) {
-                    String playerId = entry.getKey();
-                    String playerName = entry.getValue();
-                    String profilePic = room1.getPlayerProfiles().get(playerId);
-                    Map<String, Object> playerRequest = new HashMap<>();
-                    playerRequest.put("id", playerId);
-                    playerRequest.put("name", playerName);
-                    playerRequest.put("profilePic", profilePic);
-                    restTemplate.postForObject(baseUrl + "/games/" + sessionId + "/players", playerRequest, Map.class);
-                }
+                // 2. Add each player & 3. Start the game — clean up the session on any failure
+                try {
+                    for (Map.Entry<String, String> entry : room1.getPlayerNames().entrySet()) {
+                        String playerId = entry.getKey();
+                        String playerName = entry.getValue();
+                        String profilePic = room1.getPlayerProfiles().get(playerId);
+                        Map<String, Object> playerRequest = new HashMap<>();
+                        playerRequest.put("id", playerId);
+                        playerRequest.put("name", playerName);
+                        playerRequest.put("profilePic", profilePic);
+                        restTemplate.postForObject(baseUrl + "/games/" + sessionId + "/players", playerRequest, Map.class);
+                    }
 
-                // 3. Start the game
-                restTemplate.postForObject(baseUrl + "/games/" + sessionId + "/", null, Void.class);
+                    // 3. Start the game
+                    restTemplate.postForObject(baseUrl + "/games/" + sessionId + "/", null, Void.class);
+                } catch (RestClientException e) {
+                    // Attempt to clean up the orphaned session on the game server
+                    try {
+                        restTemplate.delete(baseUrl + "/games/" + sessionId);
+                    } catch (RestClientException ignored) {}
+                    throw new IllegalArgumentException("Failed to start game session: " + e.getMessage());
+                }
 
                 // 4. Store session info and mark room as playing
                 room1.setGameSessionId(sessionId);
