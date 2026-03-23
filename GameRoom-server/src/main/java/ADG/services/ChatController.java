@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/chat")
+// The tunnel URL is randomly assigned on each Pi restart, so a fixed origin cannot
+// be configured. The risk of * is acceptable for a private server on an ephemeral URL.
 @CrossOrigin(origins = "*")
 public class ChatController {
 
