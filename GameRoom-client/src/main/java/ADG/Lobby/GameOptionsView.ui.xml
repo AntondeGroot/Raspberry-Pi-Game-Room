@@ -11,9 +11,9 @@
                             styleName="game-options-checkbox"/>
             </g:FlowPanel>
         </g:FlowPanel>
-        <g:HorizontalPanel styleName="game-options-actions">
-            <g:Button ui:field="confirmButton" text="Continue" stylePrimaryName="confirmButton"/>
+        <g:FlowPanel styleName="game-options-actions">
             <g:Button ui:field="cancelButton" text="Cancel" stylePrimaryName="cancelButton"/>
-        </g:HorizontalPanel>
+            <g:Button ui:field="confirmButton" text="Continue" stylePrimaryName="confirmButton"/>
+        </g:FlowPanel>
     </g:VerticalPanel>
 </ui:UiBinder>

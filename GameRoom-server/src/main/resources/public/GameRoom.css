@@ -250,8 +250,9 @@ td, th, span, p, div, label {
 
 .game-options-actions {
   display: flex;
-  gap: 12px;
+  gap: 32px;
   margin-top: 8px;
+  justify-content: center;
 }
 
 /* =============================================
