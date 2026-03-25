@@ -46,6 +46,7 @@ public class CharacterSelectionPresenter implements Presenter {
         cancelReg  = view.getCancelButton().addClickHandler(event -> onBackToLobby());
         selectedProfileIndex = -1;
         view.getSelectedProfileLabel().setText("No profile picture selected");
+        view.getUsernameInput().setText(ADG.Utils.Cookie.getUsername());
         loadProfilePictures();
         if (room.isUniqueProfilePics()) {
             pollingService.startPolling(POLLING_INTERVAL_MS, this::pollServerForProfileUpdates);
@@ -72,9 +73,11 @@ public class CharacterSelectionPresenter implements Presenter {
                     return;
                 }
                 if (!updatedRoom.getPlayerProfiles().equals(room.getPlayerProfiles())) {
+                    String myId = ADG.Utils.Cookie.getPlayerId();
                     boolean selectionTaken = selectedProfileIndex != -1
-                            && updatedRoom.getPlayerProfiles().values()
-                                         .contains(String.valueOf(selectedProfileIndex));
+                            && updatedRoom.getPlayerProfiles().entrySet().stream()
+                                         .filter(e -> !e.getKey().equals(myId))
+                                         .anyMatch(e -> e.getValue().equals(String.valueOf(selectedProfileIndex)));
                     room.getPlayerProfiles().clear();
                     room.getPlayerProfiles().putAll(updatedRoom.getPlayerProfiles());
                     if (selectionTaken) {
@@ -94,8 +97,10 @@ public class CharacterSelectionPresenter implements Presenter {
 
         Set<Integer> takenIndices = new HashSet<>();
         if (room.isUniqueProfilePics()) {
-            for (String profileId : room.getPlayerProfiles().values()) {
-                try { takenIndices.add(Integer.parseInt(profileId)); } catch (NumberFormatException ignored) {}
+            String myId = ADG.Utils.Cookie.getPlayerId();
+            for (java.util.Map.Entry<String, String> entry : room.getPlayerProfiles().entrySet()) {
+                if (entry.getKey().equals(myId)) continue;
+                try { takenIndices.add(Integer.parseInt(entry.getValue())); } catch (NumberFormatException ignored) {}
             }
         }
 
@@ -186,6 +191,8 @@ public class CharacterSelectionPresenter implements Presenter {
             view.showAlert("Please select a profile picture.");
             return;
         }
+
+        Cookie.setUsername(username);
 
         if (isCreator()) {
             roomService.addPlayerIdToRoom(Cookie.getPlayerId(), room.getId(), new AsyncCallback<Void>() {

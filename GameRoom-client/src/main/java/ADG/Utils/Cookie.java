@@ -7,7 +7,8 @@ import java.util.Collection;
 
 public class Cookie {
 
-    private static final String PLAYERID = "playerid";
+    private static final String PLAYERID  = "playerid";
+    private static final String USERNAME  = "username";
 
     public static String getPlayerId(){
         createPlayerIdCookie();
@@ -19,5 +20,14 @@ public class Cookie {
         if(!cookieNames.contains(PLAYERID)){
             Cookies.setCookie(PLAYERID, UUID.get());
         }
+    }
+
+    public static String getUsername() {
+        String value = Cookies.getCookie(USERNAME);
+        return value != null ? value : "";
+    }
+
+    public static void setUsername(String username) {
+        Cookies.setCookie(USERNAME, username);
     }
 }
