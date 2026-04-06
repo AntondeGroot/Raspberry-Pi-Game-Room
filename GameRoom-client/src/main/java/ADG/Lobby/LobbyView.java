@@ -2,6 +2,7 @@ package ADG.Lobby;
 
 import ADG.audio.AudioPlayer;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.event.dom.client.ChangeHandler;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.Window;
@@ -65,6 +66,10 @@ public class LobbyView extends Composite {
     public String getSelectedGameId() {
         int index = gameListBox.getSelectedIndex();
         return index >= 0 ? gameListBox.getValue(index) : null;
+    }
+
+    public void addGameSelectionChangeHandler(ChangeHandler handler) {
+        gameListBox.addChangeHandler(handler);
     }
 
     public void showAlert(String msg) {

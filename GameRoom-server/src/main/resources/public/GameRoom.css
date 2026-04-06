@@ -255,7 +255,7 @@ td, th, span, p, div, label {
 .game-options-field-inline {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 8px 0;
 }
@@ -291,6 +291,14 @@ td, th, span, p, div, label {
 .game-options-range-hint {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+.game-options-description {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-left: 16px;
+  flex: 1;
+  text-align: left;
 }
 
 .game-options-actions {

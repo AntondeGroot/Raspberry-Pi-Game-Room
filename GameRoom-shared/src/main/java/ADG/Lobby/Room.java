@@ -21,6 +21,7 @@ public class Room implements IsSerializable {
     private int minPlayers = 1;
     private int maxPlayers = 8;
     private boolean uniqueProfilePics = true;
+    private HashMap<String, String> gameOptions = new HashMap<>();
 
     public Room() {} // Default constructor
 
@@ -143,6 +144,14 @@ public class Room implements IsSerializable {
         this.uniqueProfilePics = uniqueProfilePics;
     }
 
+    public HashMap<String, String> getGameOptions() {
+        return gameOptions;
+    }
+
+    public void setGameOptions(HashMap<String, String> gameOptions) {
+        this.gameOptions = gameOptions;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -160,13 +169,14 @@ public class Room implements IsSerializable {
                 && Objects.equals(playerProfiles, room.playerProfiles)
                 && Objects.equals(gameId, room.gameId)
                 && Objects.equals(gameSessionId, room.gameSessionId)
-                && Objects.equals(gameBaseUrl, room.gameBaseUrl);
+                && Objects.equals(gameBaseUrl, room.gameBaseUrl)
+                && Objects.equals(gameOptions, room.gameOptions);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, createdByUserId, name, status, playerIds, playerNames,
-                playerProfiles, gameId, gameSessionId, gameBaseUrl, minPlayers, maxPlayers, uniqueProfilePics);
+                playerProfiles, gameId, gameSessionId, gameBaseUrl, minPlayers, maxPlayers, uniqueProfilePics, gameOptions);
     }
 
     @Override

@@ -10,12 +10,15 @@ import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class GameOptionsView extends Composite {
 
     interface Binder extends UiBinder<Widget, GameOptionsView> {}
     private static Binder uiBinder = GWT.create(Binder.class);
 
+    @UiField FlowPanel  gameSpecificOptionsPanel;
     @UiField CheckBox   uniqueProfilePicsCheckbox;
     @UiField FlowPanel  maxPlayersField;
     @UiField TextBox    maxPlayersInput;
@@ -25,6 +28,8 @@ public class GameOptionsView extends Composite {
 
     private int minBound;
     private int maxBound;
+    private final ArrayList<String> gameOptionKeys = new ArrayList<>();
+    private final ArrayList<Widget> gameOptionWidgets = new ArrayList<>();
 
     public GameOptionsView() {
         initWidget(uiBinder.createAndBindUi(this));
@@ -58,4 +63,62 @@ public class GameOptionsView extends Composite {
 
     public Button getConfirmButton() { return confirmButton; }
     public Button getCancelButton()  { return cancelButton; }
+
+    public void showGameSpecificOptions(ArrayList<GameOption> options) {
+        gameOptionKeys.clear();
+        gameOptionWidgets.clear();
+        // Remove all children after the heading (index 0)
+        while (gameSpecificOptionsPanel.getWidgetCount() > 1) {
+            gameSpecificOptionsPanel.remove(1);
+        }
+        if (options == null || options.isEmpty()) {
+            gameSpecificOptionsPanel.setVisible(false);
+            return;
+        }
+        for (GameOption option : options) {
+            FlowPanel row = new FlowPanel();
+            row.addStyleName("game-options-field-inline");
+            Widget inputWidget;
+            if ("BOOLEAN".equals(option.getType())) {
+                CheckBox cb = new CheckBox(option.getLabel());
+                cb.addStyleName("game-options-checkbox");
+                cb.setValue("true".equalsIgnoreCase(option.getDefaultValue()));
+                inputWidget = cb;
+            } else {
+                Label lbl = new Label(option.getLabel());
+                lbl.addStyleName("game-options-label");
+                TextBox tb = new TextBox();
+                tb.addStyleName("game-options-number-input");
+                tb.setText(option.getDefaultValue() != null ? option.getDefaultValue() : "");
+                row.add(lbl);
+                inputWidget = tb;
+            }
+            row.add(inputWidget);
+            if (option.getDescription() != null && !option.getDescription().isEmpty()) {
+                Label desc = new Label(option.getDescription());
+                desc.addStyleName("game-options-description");
+                row.add(desc);
+            }
+            gameSpecificOptionsPanel.add(row);
+            gameOptionKeys.add(option.getKey());
+            gameOptionWidgets.add(inputWidget);
+        }
+        gameSpecificOptionsPanel.setVisible(true);
+    }
+
+    public HashMap<String, String> collectGameOptions() {
+        if (gameOptionKeys.isEmpty()) return null;
+        HashMap<String, String> result = new HashMap<>();
+        for (int i = 0; i < gameOptionKeys.size(); i++) {
+            Widget w = gameOptionWidgets.get(i);
+            String value;
+            if (w instanceof CheckBox) {
+                value = String.valueOf(((CheckBox) w).getValue());
+            } else {
+                value = ((TextBox) w).getText().trim();
+            }
+            result.put(gameOptionKeys.get(i), value);
+        }
+        return result;
+    }
 }

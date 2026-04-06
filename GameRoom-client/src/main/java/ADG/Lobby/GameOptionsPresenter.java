@@ -6,6 +6,8 @@ import ADG.audio.AudioPlayer;
 import com.google.gwt.event.shared.HandlerRegistration;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class GameOptionsPresenter implements Presenter {
 
@@ -15,12 +17,18 @@ public class GameOptionsPresenter implements Presenter {
     private final RoomServiceAsync roomService;
     private HandlerRegistration confirmReg;
     private HandlerRegistration cancelReg;
+    private final ArrayList<GameOption> preloadedOptions;
 
     public GameOptionsPresenter(GameOptionsView view, Room room, PresenterManager presenterManager, RoomServiceAsync roomService) {
+        this(view, room, presenterManager, roomService, null);
+    }
+
+    public GameOptionsPresenter(GameOptionsView view, Room room, PresenterManager presenterManager, RoomServiceAsync roomService, ArrayList<GameOption> preloadedOptions) {
         this.view = view;
         this.room = room;
         this.presenterManager = presenterManager;
         this.roomService = roomService;
+        this.preloadedOptions = preloadedOptions;
     }
 
     @Override
@@ -28,6 +36,16 @@ public class GameOptionsPresenter implements Presenter {
         view.init(room);
         confirmReg = view.getConfirmButton().addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); onConfirm(); });
         cancelReg  = view.getCancelButton().addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); onCancel(); });
+        if (preloadedOptions != null) {
+            view.showGameSpecificOptions(preloadedOptions);
+        } else if (room.getGameId() != null) {
+            roomService.getGameOptions(room.getGameId(), new AsyncCallback<ArrayList<GameOption>>() {
+                @Override public void onFailure(Throwable t) {}
+                @Override public void onSuccess(ArrayList<GameOption> options) {
+                    view.showGameSpecificOptions(options);
+                }
+            });
+        }
     }
 
     @Override
@@ -44,6 +62,10 @@ public class GameOptionsPresenter implements Presenter {
         }
         room.setMaxPlayers(maxPlayers);
         room.setUniqueProfilePics(view.isUniqueProfilePics());
+        HashMap<String, String> gameOpts = view.collectGameOptions();
+        if (gameOpts != null) {
+            room.setGameOptions(gameOpts);
+        }
         // Persist the options to the server before proceeding, so joining players see them
         roomService.updateRoom(room, new AsyncCallback<Void>() {
             @Override public void onFailure(Throwable t) {

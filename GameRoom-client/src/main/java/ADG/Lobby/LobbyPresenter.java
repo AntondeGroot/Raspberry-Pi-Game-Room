@@ -14,11 +14,15 @@ import java.util.ArrayList;
 public class LobbyPresenter implements Presenter {
 
     private static final int POLLING_INTERVAL_MS = 200;
+    private static final int OPTIONS_POLLING_INTERVAL_MS = 2000;
     private final LobbyView view;
     private final PresenterManager presenterManager;
     private final RoomServiceAsync roomService;
     private final ArrayList<Room> rooms = new ArrayList<>();
     private PollingService pollingService = new PollingService();
+    private final PollingService gameOptionsPollingService = new PollingService();
+    private ArrayList<GameOption> cachedGameOptions = null;
+    private String pollingForGameId = null;
 
     @Override
     public void start() {
@@ -30,6 +34,7 @@ public class LobbyPresenter implements Presenter {
     @Override
     public void stop() {
         pollingService.stopPolling();
+        gameOptionsPollingService.stopPolling();
     }
 
     public LobbyPresenter(LobbyView view, PresenterManager presenterManager, RoomServiceAsync roomService) {
@@ -41,6 +46,7 @@ public class LobbyPresenter implements Presenter {
 
     private void bind() {
         view.setCurrentPlayerId(Cookie.getPlayerId());
+        view.addGameSelectionChangeHandler(e -> onGameSelectionChanged());
         view.getCreateRoomButton().addClickHandler(event -> {
             String roomName = view.getRoomNameInput().getText().trim();
             if (roomName.isEmpty()) {
@@ -92,8 +98,33 @@ public class LobbyPresenter implements Presenter {
         });
     }
 
+    private void onGameSelectionChanged() {
+        startPollingForGameOptions();
+    }
+
+    private void startPollingForGameOptions() {
+        String gameId = view.getSelectedGameId();
+        if (gameId == null || gameId.equals(pollingForGameId)) return;
+        pollingForGameId = gameId;
+        cachedGameOptions = null;
+        gameOptionsPollingService.stopPolling();
+        gameOptionsPollingService.startPolling(OPTIONS_POLLING_INTERVAL_MS, () -> fetchGameOptions(gameId));
+    }
+
+    private void fetchGameOptions(String gameId) {
+        roomService.getGameOptions(gameId, new AsyncCallback<ArrayList<GameOption>>() {
+            @Override public void onFailure(Throwable t) { /* retry on next poll */ }
+            @Override public void onSuccess(ArrayList<GameOption> options) {
+                if (gameId.equals(pollingForGameId)) {
+                    cachedGameOptions = options;
+                    gameOptionsPollingService.stopPolling();
+                }
+            }
+        });
+    }
+
     private void navigateToGameOptions(Room room) {
-        presenterManager.switchToGameOptions(room);
+        presenterManager.switchToGameOptions(room, cachedGameOptions);
     }
 
     /**
@@ -132,6 +163,7 @@ public class LobbyPresenter implements Presenter {
             @Override
             public void onSuccess(ArrayList<GameDefinition> games) {
                 view.populateGameList(games);
+                startPollingForGameOptions();
             }
         });
     }
