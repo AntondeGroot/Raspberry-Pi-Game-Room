@@ -19,4 +19,5 @@ public interface RoomService extends RemoteService {
     void publishRoom(String roomId);
     Room startGame(String roomId) throws IllegalArgumentException;
     ArrayList<GameDefinition> getAvailableGames();
+    ArrayList<GameOption> getGameOptions(String gameId) throws IllegalArgumentException;
 }

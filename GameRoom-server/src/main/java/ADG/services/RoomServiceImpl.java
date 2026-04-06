@@ -1,6 +1,7 @@
 package ADG.services;
 
 import ADG.Lobby.GameDefinition;
+import ADG.Lobby.GameOption;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import ADG.Lobby.RoomService;
@@ -203,6 +204,9 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 Map<String, Object> newGameRequest = new HashMap<>();
                 newGameRequest.put("roomName", room1.getName());
                 newGameRequest.put("maxPlayers", room1.getPlayerNames().size());
+                if (!room1.getGameOptions().isEmpty()) {
+                    newGameRequest.put("gameOptions", parseGameOptions(room1.getGameOptions()));
+                }
                 Map sessionResponse;
                 try {
                     sessionResponse = restTemplate.postForObject(baseUrl + "/games", newGameRequest, Map.class);
@@ -249,6 +253,19 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
+    public synchronized ArrayList<GameOption> getGameOptions(String gameId) {
+        GameDefinition game = gamesConfig.findById(gameId).orElse(null);
+        if (game == null) return new ArrayList<>();
+        try {
+            GameOption[] options = restTemplate.getForObject(game.getBaseUrl() + "/game-options", GameOption[].class);
+            if (options == null) return new ArrayList<>();
+            return new ArrayList<>(java.util.Arrays.asList(options));
+        } catch (RestClientException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
     public synchronized ArrayList<GameDefinition> getAvailableGames() {
         ArrayList<GameDefinition> reachable = new ArrayList<>();
         for (GameDefinition game : gamesConfig.getAvailable()) {
@@ -269,6 +286,21 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             }
             return false;
         });
+    }
+
+    private Map<String, Object> parseGameOptions(HashMap<String, String> raw) {
+        Map<String, Object> parsed = new HashMap<>();
+        for (Map.Entry<String, String> entry : raw.entrySet()) {
+            parsed.put(entry.getKey(), parseOptionValue(entry.getValue()));
+        }
+        return parsed;
+    }
+
+    private Object parseOptionValue(String value) {
+        if ("true".equalsIgnoreCase(value)) return true;
+        if ("false".equalsIgnoreCase(value)) return false;
+        try { return Integer.parseInt(value); } catch (NumberFormatException ignored) {}
+        return value;
     }
 
     private boolean isReachable(String baseUrl) {

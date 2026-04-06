@@ -1,6 +1,7 @@
 package ADG;
 
 import ADG.Lobby.*;
+import java.util.ArrayList;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.user.client.ui.RootPanel;
 import com.google.gwt.user.client.ui.Widget;
@@ -33,8 +34,8 @@ public class PresenterManager {
         switchPresenter(lobbyPresenter, lobbyView);
     }
 
-    public void switchToGameOptions(Room room) {
-        gameOptionsPresenter = new GameOptionsPresenter(gameOptionsView, room, this, roomServiceAsync);
+    public void switchToGameOptions(Room room, ArrayList<GameOption> preloadedOptions) {
+        gameOptionsPresenter = new GameOptionsPresenter(gameOptionsView, room, this, roomServiceAsync, preloadedOptions);
         switchPresenter(gameOptionsPresenter, gameOptionsView);
     }
 

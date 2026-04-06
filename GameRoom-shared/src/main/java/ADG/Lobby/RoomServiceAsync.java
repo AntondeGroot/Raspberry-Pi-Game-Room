@@ -37,4 +37,7 @@ public interface RoomServiceAsync {
 
     void getAvailableGames(AsyncCallback<ArrayList<GameDefinition>> asyncCallback)
             throws IllegalArgumentException;
+
+    void getGameOptions(String gameId, AsyncCallback<ArrayList<GameOption>> callback)
+            throws IllegalArgumentException;
 }
