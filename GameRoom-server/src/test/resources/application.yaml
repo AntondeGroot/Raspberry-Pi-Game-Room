@@ -1,3 +1,7 @@
 spring:
   config:
     import: "optional:classpath:games.yaml"
+
+admin:
+  # BCrypt of "test" — used only in tests for HTTP Basic auth verification.
+  password-hash: "$2a$10$zW.25eyinz1Tqyw6cxyIyOF4UcjnVtHlKPPt2DIEAIFC52.tkn5J2"

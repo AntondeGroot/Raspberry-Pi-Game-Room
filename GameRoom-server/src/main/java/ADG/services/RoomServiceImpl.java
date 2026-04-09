@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestClientException;
@@ -28,11 +27,12 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Autowired
     private GamesConfig gamesConfig;
 
+    @Autowired
+    private RoomStore roomStore;
+
     private static final long EMPTY_ROOM_TTL_MS = 15 * 60 * 1000L;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private ArrayList<Room> rooms = new ArrayList<>();
-    final ConcurrentHashMap<String, Long> emptyRoomTimestamps = new ConcurrentHashMap<>();
 
     @PostConstruct
     private void seedTestRoom() {
@@ -60,13 +60,13 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             room.addPlayerProfile(pid, p[1]);
         }
         room.setCreatedByUserId(room.getPlayerIds().get(0));
-        rooms.add(room);
+        roomStore.rooms.add(room);
     }
 
     @Override
     public synchronized ArrayList<Room> getRooms() {
         ArrayList<Room> visible = new ArrayList<>();
-        for (Room r : rooms) {
+        for (Room r : roomStore.rooms) {
             if (r.getStatus() != GameStatus.PENDING) {
                 visible.add(r);
             }
@@ -76,7 +76,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized Room getRoomById(String roomId){
-        Optional<Room> result = rooms.stream().filter(room -> room.getId().equals(roomId)).findFirst();
+        Optional<Room> result = roomStore.rooms.stream().filter(room -> room.getId().equals(roomId)).findFirst();
         if(result.isPresent()) {
             if(result.get().getId() == null){
                 throw new IllegalArgumentException();
@@ -91,12 +91,12 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
         if (room.getName().isBlank() || room.getName().trim().length() < 3) {
             throw new IllegalArgumentException("Room name must be at least 3 characters.");
         }
-        boolean nameAlreadyExists = rooms.stream()
+        boolean nameAlreadyExists = roomStore.rooms.stream()
                 .anyMatch(r -> r.getName().equalsIgnoreCase(room.getName().trim()));
         if (nameAlreadyExists) {
             throw new IllegalArgumentException("A room with this name already exists.");
         }
-        rooms.stream()
+        roomStore.rooms.stream()
                 .filter(r -> r.getPlayerIds().contains(room.getCreatedByUserId()))
                 .findFirst()
                 .ifPresent(r -> removePlayerFromRoom(room.getCreatedByUserId(), r.getId()));
@@ -106,47 +106,60 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             room.setMaxPlayers(game.getMaxPlayers());
         });
         room.setStatus(GameStatus.PENDING);
-        rooms.add(room);
+        roomStore.rooms.add(room);
         return room;
     }
 
     @Override
     public synchronized void publishRoom(String roomId) {
-        rooms.stream()
+        roomStore.rooms.stream()
                 .filter(r -> r.getId().equals(roomId) && r.getStatus() == GameStatus.PENDING)
                 .findFirst()
                 .ifPresent(r -> r.setStatus(GameStatus.WAITING));
     }
 
+    // NOTE: This GWT-RPC method is NOT protected by Spring Security.
+    // Authorization is enforced here manually: only the room creator may delete via this path.
+    // Admins delete rooms through the Spring Security-protected DELETE /admin/rooms/{id} endpoint instead.
     @Override
     public synchronized void deleteRoom(String roomId) {
-        Optional<Room> result = rooms.stream().filter(room -> room.getId().equals(roomId)).findFirst();
-        if(result.isPresent()) {
-            Room foundRoom = result.get();
-            rooms.remove(foundRoom);
+        String callerId = getPlayerIdFromRequest();
+        boolean isCreator = roomStore.rooms.stream()
+                .filter(r -> r.getId().equals(roomId))
+                .anyMatch(r -> r.getCreatedByUserId().equals(callerId));
+        if (!isCreator) return;
+        roomStore.deleteRoom(roomId);
+    }
+
+    String getPlayerIdFromRequest() {
+        jakarta.servlet.http.Cookie[] cookies = getThreadLocalRequest().getCookies();
+        if (cookies == null) return "";
+        for (jakarta.servlet.http.Cookie c : cookies) {
+            if ("playerid".equals(c.getName())) return c.getValue();
         }
+        return "";
     }
 
     @Override
     public synchronized void updateRoom(Room room){
-        Optional<Room> result = rooms.stream().filter(r -> r.getId().equals(room.getId())).findFirst();
+        Optional<Room> result = roomStore.rooms.stream().filter(r -> r.getId().equals(room.getId())).findFirst();
         if(result.isPresent()) {
             Room foundRoom = result.get();
-            rooms.remove(foundRoom);
-            rooms.add(room);
+            roomStore.rooms.remove(foundRoom);
+            roomStore.rooms.add(room);
         }
     }
 
     @Override
     public synchronized void addPlayerIdToRoom(String playerId, String roomId) {
-        boolean alreadyInAnotherRoom = rooms.stream()
+        boolean alreadyInAnotherRoom = roomStore.rooms.stream()
                 .anyMatch(r -> !r.getId().equals(roomId) && r.getPlayerIds().contains(playerId));
         if (alreadyInAnotherRoom) return;
 
-        for (Room room1 : rooms) {
+        for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(roomId)) {
                 room1.addPlayer(playerId);
-                emptyRoomTimestamps.remove(room1.getId());
+                roomStore.emptyRoomTimestamps.remove(room1.getId());
                 if (room1.getNrOfPlayers() >= room1.getMaxPlayers()) {
                     room1.setStatus(GameStatus.FULL);
                 }
@@ -156,7 +169,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void removePlayerFromRoom(String playerId, String roomId) {
-        for (Room room1 : rooms) {
+        for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(roomId)) {
                 room1.removePlayer(playerId);
                 if (room1.getStatus() == GameStatus.FULL && room1.getNrOfPlayers() < room1.getMaxPlayers()) {
@@ -167,7 +180,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                     room1.setCreatedByUserId(newCreator);
                 }
                 if (room1.getPlayerIds().isEmpty() && room1.getStatus() != GameStatus.PENDING) {
-                    emptyRoomTimestamps.put(room1.getId(), System.currentTimeMillis());
+                    roomStore.emptyRoomTimestamps.put(room1.getId(), System.currentTimeMillis());
                 }
             }
         }
@@ -175,7 +188,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void setUsernameAndProfile(Room room, String userId, String username, String profileId) {
-        for (Room room1 : rooms) {
+        for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(room.getId())) {
                 room1.addPlayerName(userId, username);
                 room1.addPlayerProfile(userId, profileId);
@@ -185,7 +198,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized Room startGame(String roomId) {
-        for (Room room1 : rooms) {
+        for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(roomId)) {
 
                 GameDefinition game = gamesConfig.findById(room1.getGameId())
@@ -279,9 +292,9 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Scheduled(fixedDelay = 60_000)
     public synchronized void deleteEmptyRooms() {
         long now = System.currentTimeMillis();
-        emptyRoomTimestamps.entrySet().removeIf(entry -> {
+        roomStore.emptyRoomTimestamps.entrySet().removeIf(entry -> {
             if (now - entry.getValue() >= EMPTY_ROOM_TTL_MS) {
-                rooms.removeIf(r -> r.getId().equals(entry.getKey()) && r.getPlayerIds().isEmpty());
+                roomStore.rooms.removeIf(r -> r.getId().equals(entry.getKey()) && r.getPlayerIds().isEmpty());
                 return true;
             }
             return false;
@@ -315,5 +328,4 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             return false;
         }
     }
-
 }

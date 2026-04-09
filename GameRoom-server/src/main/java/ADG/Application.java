@@ -9,6 +9,7 @@ import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.ServletComponentScan;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -21,8 +22,14 @@ public class Application
     extends SpringBootServletInitializer {
 
   public static void main(String[] args) {
-    SpringApplication.run(Application.class,
-                          args);
+    for (String arg : args) {
+      if (arg.startsWith("--generate-password=")) {
+        String password = arg.substring("--generate-password=".length());
+        System.out.println(new BCryptPasswordEncoder().encode(password));
+        return; // never starts Spring Boot
+      }
+    }
+    SpringApplication.run(Application.class, args);
   }
 
   @Override

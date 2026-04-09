@@ -13,6 +13,8 @@ import java.util.Map;
 
 public class RoomView extends Composite {
 
+    private boolean isAdmin = false;
+
     interface RoomUiBinder extends UiBinder<Widget, RoomView> {}
     private static RoomUiBinder uiBinder = GWT.create(RoomUiBinder.class);
 
@@ -304,6 +306,10 @@ public class RoomView extends Composite {
         container.__sim = sim;
     }-*/;
 
+    public void setAdminMode(boolean adminMode) {
+        this.isAdmin = adminMode;
+    }
+
     public void updateCreatorControls(Room room) {
         boolean isCreator = room.getCreatedByUserId().equals(Cookie.getPlayerId())
                 && room.getStatus() != GameStatus.PLAYING;
@@ -329,8 +335,9 @@ public class RoomView extends Composite {
             startInfoLabel.setVisible(true);
         }
 
-        deleteRoomButton.setEnabled(isCreator);
-        deleteRoomButton.setVisible(isCreator);
+        boolean canDelete = isCreator || isAdmin;
+        deleteRoomButton.setEnabled(canDelete);
+        deleteRoomButton.setVisible(canDelete);
     }
 
     public void refreshMessages(List<Message> messages) {

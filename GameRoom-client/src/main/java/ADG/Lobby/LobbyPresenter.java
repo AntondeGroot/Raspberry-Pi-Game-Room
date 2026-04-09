@@ -5,6 +5,7 @@ import ADG.Utils.Cookie;
 import ADG.audio.AudioPlayer;
 import ADG.Utils.PollingService;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.http.client.*;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -27,6 +28,7 @@ public class LobbyPresenter implements Presenter {
     @Override
     public void start() {
         History.newItem("");
+        checkAdminStatus();
         loadAvailableGames();
         pollingService.startPolling(POLLING_INTERVAL_MS, this::pollServerForRooms);
     }
@@ -47,6 +49,7 @@ public class LobbyPresenter implements Presenter {
     private void bind() {
         view.setCurrentPlayerId(Cookie.getPlayerId());
         view.addGameSelectionChangeHandler(e -> onGameSelectionChanged());
+        view.setDeleteHandler(this::deleteRoomAsAdmin);
         view.getCreateRoomButton().addClickHandler(event -> {
             String roomName = view.getRoomNameInput().getText().trim();
             if (roomName.isEmpty()) {
@@ -209,5 +212,53 @@ public class LobbyPresenter implements Presenter {
     private synchronized void updateRooms(ArrayList<Room> fetchedRooms) {
         rooms.clear();
         rooms.addAll(fetchedRooms);
+    }
+
+    private void checkAdminStatus() {
+        RequestBuilder rb = new RequestBuilder(RequestBuilder.GET, "/admin/check");
+        rb.setHeader("Accept", "application/json");
+        try {
+            rb.sendRequest(null, new RequestCallback() {
+                @Override
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == Response.SC_OK) {
+                        view.setAdminMode(true);
+                    }
+                }
+                @Override
+                public void onError(Request request, Throwable exception) {
+                    GWT.log("Admin check error: " + exception.getMessage());
+                }
+            });
+        } catch (RequestException e) {
+            GWT.log("Admin check failed: " + e.getMessage());
+        }
+    }
+
+    private void deleteRoomAsAdmin(Room room) {
+        if (!Window.confirm("Delete room '" + room.getName() + "'?")) return;
+        RequestBuilder rb = new RequestBuilder(RequestBuilder.DELETE, "/admin/rooms/" + room.getId());
+        rb.setHeader("Accept", "application/json");
+        try {
+            rb.sendRequest(null, new RequestCallback() {
+                @Override
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == Response.SC_NO_CONTENT) {
+                        // Table updates on next poll automatically
+                    } else if (response.getStatusCode() == Response.SC_UNAUTHORIZED
+                               || response.getStatusCode() == Response.SC_FORBIDDEN) {
+                        view.showAlert("Not authorised — please log in as admin first.");
+                    } else {
+                        view.showAlert("Delete failed (HTTP " + response.getStatusCode() + ")");
+                    }
+                }
+                @Override
+                public void onError(Request request, Throwable exception) {
+                    view.showAlert("Delete failed: " + exception.getMessage());
+                }
+            });
+        } catch (RequestException e) {
+            GWT.log("Delete room failed: " + e.getMessage());
+        }
     }
 }
