@@ -30,6 +30,7 @@ public class RoomPresenter implements Presenter {
     private HashMap<String, String> userNames = new HashMap<>();
     private HashMap<String, String> userProfiles = new HashMap<>();
     private boolean playerListInitialized = false;
+    private boolean isAdmin = false;
     private final PollingService pollingService = new PollingService();
     private final List<HandlerRegistration> handlerRegistrations = new ArrayList<>();
 
@@ -44,6 +45,7 @@ public class RoomPresenter implements Presenter {
     public void start() {
         History.newItem("room=" + room.getId());
         AudioPlayer.play(AudioPlayer.PLAYER_ENTER);
+        checkAdminStatus();
         bind();
         pollingService.startPolling(500, this::pollServerForUpdates);
     }
@@ -124,17 +126,62 @@ public class RoomPresenter implements Presenter {
 
     private void deleteRoom() {
         boolean confirmDelete = Window.confirm("Are you sure you want to delete this room?");
-        if (confirmDelete) {
-            roomService.deleteRoom(room.getName(), new AsyncCallback<Void>() {
-                @Override
-                public void onFailure(Throwable throwable) {
-                }
+        if (!confirmDelete) return;
+        if (isAdmin) {
+            // Admins delete via the Spring Security-protected REST endpoint.
+            deleteRoomAsAdmin();
+        } else {
+            // Room creators delete via GWT-RPC. This path is NOT protected by Spring Security;
+            // authorization is enforced server-side in RoomServiceImpl by checking the playerid cookie.
+            roomService.deleteRoom(room.getId(), new AsyncCallback<Void>() {
+                @Override public void onFailure(Throwable throwable) {}
+                @Override public void onSuccess(Void unused) { presenterManager.switchToLobby(); }
+            });
+        }
+    }
 
+    private void deleteRoomAsAdmin() {
+        try {
+            RequestBuilder rb = new RequestBuilder(RequestBuilder.DELETE, "/admin/rooms/" + room.getId());
+            rb.setHeader("Accept", "application/json");
+            rb.sendRequest(null, new RequestCallback() {
                 @Override
-                public void onSuccess(Void unused) {
-                    presenterManager.switchToLobby();
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == Response.SC_NO_CONTENT) {
+                        presenterManager.switchToLobby();
+                    } else {
+                        Window.alert("Delete failed (HTTP " + response.getStatusCode() + ")");
+                    }
+                }
+                @Override
+                public void onError(Request request, Throwable exception) {
+                    Window.alert("Delete failed: " + exception.getMessage());
                 }
             });
+        } catch (RequestException e) {
+            GWT.log("Admin delete room failed: " + e.getMessage());
+        }
+    }
+
+    private void checkAdminStatus() {
+        try {
+            RequestBuilder rb = new RequestBuilder(RequestBuilder.GET, "/admin/check");
+            rb.setHeader("Accept", "application/json");
+            rb.sendRequest(null, new RequestCallback() {
+                @Override
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == Response.SC_OK) {
+                        isAdmin = true;
+                        roomView.setAdminMode(true);
+                    }
+                }
+                @Override
+                public void onError(Request request, Throwable exception) {
+                    GWT.log("Admin check error: " + exception.getMessage());
+                }
+            });
+        } catch (RequestException e) {
+            GWT.log("Admin check failed: " + e.getMessage());
         }
     }
 

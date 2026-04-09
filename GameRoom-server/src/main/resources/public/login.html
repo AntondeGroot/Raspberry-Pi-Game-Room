@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login – GameRoom</title>
+  <link rel="stylesheet" href="/GameRoom.css"/>
+  <style>
+    .login-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .login-card {
+      background: linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(15,8,32,0.7) 100%);
+      border: 2px solid rgba(139,92,246,0.7);
+      border-radius: 12px;
+      padding: 40px 48px;
+      width: 320px;
+      box-shadow: 0 0 0 4px rgba(139,92,246,0.12), 0 4px 24px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .login-title {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 1.6em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fb923c;
+      text-align: center;
+      text-shadow: 0 0 16px rgba(251,146,60,0.4);
+      margin: 0;
+    }
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .login-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #9485c0;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .login-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: 'Nunito', system-ui, sans-serif;
+      font-size: 14px;
+      color: #ede8ff;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 8px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .login-input:focus {
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 2px rgba(139,92,246,0.35);
+    }
+    .login-input.input-error {
+      border-color: #f87171;
+      box-shadow: 0 0 0 2px rgba(248,113,113,0.3);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 10px;
+      font-family: 'Nunito', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      background: linear-gradient(145deg, #fdba74, #f97316);
+      border: 2px solid #ea580c;
+      border-radius: 8px;
+      color: #431407;
+      cursor: pointer;
+      box-shadow: 2px 3px 10px rgba(0,0,0,0.5);
+      transition: all 0.2s;
+    }
+    .login-btn:hover {
+      background: linear-gradient(145deg, #fed7aa, #fb923c);
+      transform: translateY(-1px);
+    }
+    .error-label {
+      color: #f87171;
+      font-size: 13px;
+      text-align: center;
+      min-height: 18px;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0);  }
+      20%       { transform: translateX(-7px); }
+      40%       { transform: translateX(7px);  }
+      60%       { transform: translateX(-5px); }
+      80%       { transform: translateX(5px);  }
+    }
+    .shake {
+      animation: shake 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <h1 class="login-title">Admin Login</h1>
+
+      <form id="login-form" method="post" action="/perform-login" novalidate>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="login-field">
+            <label class="login-label" for="username">Username</label>
+            <input class="login-input" type="text" id="username" name="username"
+                   autocomplete="username" autofocus/>
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="password">Password</label>
+            <input class="login-input" type="password" id="password" name="password"
+                   autocomplete="current-password"/>
+          </div>
+          <div id="error-label" class="error-label"></div>
+          <button class="login-btn" type="submit">Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var errorLabel = document.getElementById('error-label');
+
+    function showError(msg) {
+      errorLabel.textContent = msg;
+      errorLabel.classList.remove('shake');
+      // Force reflow so removing+re-adding the class restarts the animation
+      void errorLabel.offsetWidth;
+      errorLabel.classList.add('shake');
+    }
+
+    // Show server-side error (wrong credentials) on page load
+    if (window.location.search.includes('error')) {
+      showError('Invalid username or password.');
+    }
+
+    document.getElementById('login-form').addEventListener('submit', function (e) {
+      var username = document.getElementById('username').value.trim();
+      var password = document.getElementById('password').value;
+      var usernameInput = document.getElementById('username');
+      var passwordInput = document.getElementById('password');
+
+      usernameInput.classList.remove('input-error');
+      passwordInput.classList.remove('input-error');
+
+      if (!username && !password) {
+        e.preventDefault();
+        usernameInput.classList.add('input-error');
+        passwordInput.classList.add('input-error');
+        showError('Username and password are required.');
+        return;
+      }
+      if (!username) {
+        e.preventDefault();
+        usernameInput.classList.add('input-error');
+        showError('Username is required.');
+        return;
+      }
+      if (!password) {
+        e.preventDefault();
+        passwordInput.classList.add('input-error');
+        showError('Password is required.');
+      }
+    });
+  </script>
+</body>
+</html>

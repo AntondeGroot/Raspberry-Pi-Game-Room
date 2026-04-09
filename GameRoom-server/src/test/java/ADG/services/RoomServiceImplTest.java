@@ -18,25 +18,36 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
 
 @ExtendWith(MockitoExtension.class)
 class RoomServiceImplTest {
 
     private RoomServiceImpl service;
+    private RoomStore roomStore;
 
     @Mock
     private GamesConfig gamesConfig;
 
     @BeforeEach
     void setUp() throws Exception {
-        service = new RoomServiceImpl();
-        // Inject mock GamesConfig — @PostConstruct is NOT invoked when newing directly,
-        // so we start with a clean, empty room list for every test.
-        Field field = RoomServiceImpl.class.getDeclaredField("gamesConfig");
-        field.setAccessible(true);
-        field.set(service, gamesConfig);
+        roomStore = new RoomStore();
+        // Use a spy so individual tests can stub getPlayerIdFromRequest() without
+        // needing a live servlet container.
+        service = spy(new RoomServiceImpl());
+        // Inject mock GamesConfig and RoomStore — @PostConstruct is NOT invoked when newing
+        // directly, so we start with a clean, empty room list for every test.
+        Field gamesConfigField = RoomServiceImpl.class.getDeclaredField("gamesConfig");
+        gamesConfigField.setAccessible(true);
+        gamesConfigField.set(service, gamesConfig);
+
+        Field roomStoreField = RoomServiceImpl.class.getDeclaredField("roomStore");
+        roomStoreField.setAccessible(true);
+        roomStoreField.set(service, roomStore);
 
         lenient().when(gamesConfig.findById(anyString())).thenReturn(Optional.empty());
+        // Default: caller is the room creator used by buildRoom().
+        lenient().doReturn("creator-1").when(service).getPlayerIdFromRequest();
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -234,7 +245,7 @@ class RoomServiceImplTest {
         service.removePlayerFromRoom("player-1", room.getId());
 
         // Manually backdate the empty timestamp to simulate 15+ minutes passing
-        service.emptyRoomTimestamps.put(room.getId(), System.currentTimeMillis() - (16 * 60 * 1000L));
+        roomStore.emptyRoomTimestamps.put(room.getId(), System.currentTimeMillis() - (16 * 60 * 1000L));
 
         service.deleteEmptyRooms();
 
@@ -261,7 +272,7 @@ class RoomServiceImplTest {
         service.publishRoom(room.getId());
         service.addPlayerIdToRoom("player-1", room.getId());
 
-        service.emptyRoomTimestamps.put(room.getId(), System.currentTimeMillis() - (16 * 60 * 1000L));
+        roomStore.emptyRoomTimestamps.put(room.getId(), System.currentTimeMillis() - (16 * 60 * 1000L));
         service.deleteEmptyRooms();
 
         assertNotNull(service.getRoomById(room.getId()));
@@ -277,7 +288,7 @@ class RoomServiceImplTest {
         service.addPlayerIdToRoom("player-2", room.getId());    // player joins → timer cancelled
 
         // Timer must have been removed — no entry should exist for this room
-        assertFalse(service.emptyRoomTimestamps.containsKey(room.getId()));
+        assertFalse(roomStore.emptyRoomTimestamps.containsKey(room.getId()));
     }
 
     @Test
@@ -288,22 +299,52 @@ class RoomServiceImplTest {
         service.deleteEmptyRooms();
 
         assertNotNull(service.getRoomById(room.getId()));
-        assertTrue(service.emptyRoomTimestamps.isEmpty());
+        assertTrue(roomStore.emptyRoomTimestamps.isEmpty());
     }
 
     // ── deleteRoom ───────────────────────────────────────────────────────────
+    // deleteRoom() is the GWT-RPC path (not Spring Security protected).
+    // Authorization is enforced by checking the playerid cookie against the room creator.
 
     @Test
-    void deleteRoomRemovesIt() {
+    void deleteRoomByCreatorRemovesIt() {
+        // Default spy returns "creator-1" which matches buildRoom()'s createdByUserId.
         Room room = buildRoom("Alpha");
         service.createRoom(room);
+        service.publishRoom(room.getId());
+
         service.deleteRoom(room.getId());
-        assertTrue(service.getRooms().isEmpty());
+
+        assertNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void deleteRoomByNonCreatorIsRejected() {
+        doReturn("stranger").when(service).getPlayerIdFromRequest();
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+
+        service.deleteRoom(room.getId());
+
+        assertNotNull(service.getRoomById(room.getId()), "non-creator must not be able to delete the room");
+    }
+
+    @Test
+    void deleteRoomWithNoCallerCookieIsRejected() {
+        doReturn("").when(service).getPlayerIdFromRequest();
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+
+        service.deleteRoom(room.getId());
+
+        assertNotNull(service.getRoomById(room.getId()), "unauthenticated caller must not be able to delete the room");
     }
 
     @Test
     void deleteNonExistentRoomIsNoOp() {
-        service.deleteRoom("non-existent-id");
+        service.deleteRoom("non-existent-id"); // must not throw
         assertTrue(service.getRooms().isEmpty());
     }
 

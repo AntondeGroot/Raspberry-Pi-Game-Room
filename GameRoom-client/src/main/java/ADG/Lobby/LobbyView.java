@@ -28,8 +28,14 @@ public class LobbyView extends Composite {
         void onJoin(Room room);
     }
 
+    public interface DeleteHandler {
+        void onDelete(Room room);
+    }
+
     private JoinHandler joinHandler;
+    private DeleteHandler deleteHandler;
     private String currentPlayerId;
+    private boolean adminMode = false;
     private ArrayList<GameDefinition> gameDefinitions = new ArrayList<>();
 
     public LobbyView() {
@@ -42,6 +48,14 @@ public class LobbyView extends Composite {
 
     public void setJoinHandler(JoinHandler handler) {
         this.joinHandler = handler;
+    }
+
+    public void setDeleteHandler(DeleteHandler handler) {
+        this.deleteHandler = handler;
+    }
+
+    public void setAdminMode(boolean adminMode) {
+        this.adminMode = adminMode;
     }
 
     public void setCurrentPlayerId(String playerId) {
@@ -130,6 +144,12 @@ public class LobbyView extends Composite {
             joinBtn.setStylePrimaryName("joinRoomButton");
             joinBtn.addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); if (joinHandler != null) joinHandler.onJoin(room); });
             actionCell.add(joinBtn);
+        }
+        if (adminMode) {
+            Button deleteBtn = new Button("✕");
+            deleteBtn.setStylePrimaryName("adminDeleteButton");
+            deleteBtn.addClickHandler(e -> { if (deleteHandler != null) deleteHandler.onDelete(room); });
+            actionCell.add(deleteBtn);
         }
         row.add(actionCell);
 

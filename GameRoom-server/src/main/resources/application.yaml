@@ -3,6 +3,7 @@ server:
     whitelabel:
       enabled: false
     path: /error
+
   forward-headers-strategy: framework
   port: 4100
 
@@ -17,6 +18,7 @@ spring:
       - "optional:file:/opt/gameroom/games.yaml"
       - "classpath:sprite-sheets.yaml"
       - "optional:file:/opt/gameroom/sprite-sheets.yaml"
+      - "optional:file:/opt/gameroom/secrets.yaml"
 
   devtools:
     restart:
@@ -40,6 +42,12 @@ spring:
   web:
     resources:
       static-locations: classpath:/launcherDir/,classpath:/public/
+
+admin:
+  # Default password is "test" — fine for local dev, override on the Pi.
+  # Generate a new hash: java -jar GameRoom.jar --generate-password=yourPassword
+  # Then put the result in /opt/gameroom/secrets.yaml as: admin.password-hash: "$2a$10$..."
+  password-hash: "$2a$10$zW.25eyinz1Tqyw6cxyIyOF4UcjnVtHlKPPt2DIEAIFC52.tkn5J2"
 
 debug: false
 
