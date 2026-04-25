@@ -4,7 +4,7 @@ This project was written in GWT in order to get a better understanding of it, si
 
 # Games
 
-## Tock / Keezespel
+## Tock / Keezenspel
 
 ## Qwixx
 
