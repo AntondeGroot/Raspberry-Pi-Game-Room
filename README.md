@@ -5,8 +5,10 @@ This project was written in GWT in order to get a better understanding of it, si
 # Games
 
 ## Tock / Keezenspel
+https://github.com/AntondeGroot/GWT_Keezenspel
 
 ## Qwixx
+https://github.com/AntondeGroot/Qwixx
 
 ## Local development
 
