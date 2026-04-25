@@ -12,16 +12,40 @@ Run `./deploy.sh` to build, upload, and restart the service.
 
 ### First-time Pi setup
 
-Run the setup script with your public hostname (a domain you have on Cloudflare):
+Run the setup script:
 
 ```bash
-./setup-pi.sh gameroom.example.com
+./setup-pi.sh
 ```
 
 This will:
 - Install and configure nginx
-- Install cloudflared, log in to Cloudflare, create the tunnel, and start it as a service
+- Install cloudflared and start it as a service
 - Write `/opt/gameroom/games.yaml` with the correct `baseUrl`
+
+The script reads `deploy.local.conf` from the project root to decide which tunnel mode to use:
+
+**Without `deploy.local.conf`** — a temporary public URL is generated, like `https://projector-improving-expired-discussed.trycloudflare.com/`. It changes on every restart but works immediately for quick sessions with friends.
+
+**With `deploy.local.conf`** — a named Cloudflare tunnel is used with a stable custom domain. Set it up first:
+
+1. On the Pi, authenticate and create a named tunnel:
+   ```bash
+   cloudflared tunnel login
+   cloudflared tunnel create gameroom
+   cloudflared tunnel route dns gameroom gameroom.yourdomain.com
+   ```
+   `cloudflared tunnel login` prints a URL — open it on your PC to authenticate. The Pi terminal will then show the tunnel UUID.
+
+2. Create `deploy.local.conf` in the project root (it is gitignored):
+   ```
+   DOMAIN=gameroom.yourdomain.com
+   TUNNEL_NAME=gameroom
+   TUNNEL_ID=your-tunnel-uuid
+   CREDENTIALS_FILE=/home/ubuntu/.cloudflared/your-tunnel-uuid.json
+   ```
+
+3. Run `./setup-pi.sh`
 
 **Keezenspel config** — create `/opt/keezen/application-override.yaml` on the Pi (done by Keezenspel's `setup-pi.sh`):
 
@@ -31,70 +55,59 @@ server:
     context-path: /keezen
 ```
 
-# Preparing your Raspberry Pi
-## 0. prerequisite: have linux installed
-## 1. Prepare the Raspberry Pi
+---
 
-Install Java and a few basics on the Pi:
-```
+<details>
+<summary>Preparing your Raspberry Pi from scratch</summary>
+
+## 0. Prerequisite: have Linux installed
+
+## 1. Install Java and basics
+
+```bash
 sudo apt update
 sudo apt install openjdk-25-jdk ufw
-```
-Check Java:
-
-`
 java -version
-`
-## 2. Create deployment folders on the Pi
+```
 
-Create one folder per app:
+## 2. Create deployment folders
+
+```bash
+sudo mkdir -p /opt/keezen /opt/gameroom
+sudo chown -R ubuntu:ubuntu /opt/keezen /opt/gameroom
 ```
-sudo mkdir -p /opt/keezen
-sudo mkdir -p /opt/gameroom
-sudo chown -R ubuntu:ubuntu /opt/keezen
-sudo chown -R ubuntu:ubuntu /opt/gameroom
-```
+
 ## 3. Set up SSH key-based deploy from your laptop
 
-Generate a dedicated deploy key on your laptop:
+Generate a dedicated deploy key:
 
-```
+```bash
 ssh-keygen -t ed25519 -f ~/.ssh/pi_deploy_key
 ```
 
-Copy the public key:
+Copy the public key to the Pi:
 
-```
+```bash
 cat ~/.ssh/pi_deploy_key.pub
 ```
+
 **On the Pi:**
 
-```
+```bash
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 nano ~/.ssh/authorized_keys
-```
-Paste the public key into authorized_keys, then save with:
-
-Ctrl + O
-
-Enter
-
-Ctrl + X
-
-Then run:
-
-```
+# paste the public key, then Ctrl+O → Enter → Ctrl+X
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-Test from your laptop:
+Test the connection from your laptop:
 
-```
+```bash
 ssh -i ~/.ssh/pi_deploy_key ubuntu@<RASPBERRYPI_IP>
 ```
 
-Add an SSH alias on your laptop in ~/.ssh/config:
+Add an SSH alias in `~/.ssh/config`:
 
 ```
 Host my-pi
@@ -102,21 +115,14 @@ Host my-pi
     User ubuntu
     IdentityFile ~/.ssh/pi_deploy_key
 ```
-Then connect with:
 
-```
-ssh my-pi
-```
+Then connect with `ssh my-pi`.
 
-## 4. Create a systemd service for each app
-game-server.service
+## 4. Create systemd services
 
-On the Pi:
+**`/etc/systemd/system/game-server.service`**
 
-sudo nano /etc/systemd/system/game-server.service
-
-Paste:
-
+```ini
 [Unit]
 Description=Java Game Server
 After=network.target
@@ -131,11 +137,11 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-gameroom.service
-sudo nano /etc/systemd/system/gameroom.service
+```
 
-Paste:
+**`/etc/systemd/system/gameroom.service`**
 
+```ini
 [Unit]
 Description=Gameroom Server
 After=network.target
@@ -150,40 +156,34 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+```
 
 Reload and enable both:
 
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now game-server
 sudo systemctl enable --now gameroom
+sudo systemctl status game-server gameroom
+```
 
-Check them:
+## 5. Verify apps listen on the correct ports
 
-sudo systemctl status game-server
-sudo systemctl status gameroom
-## 5. Make sure the apps listen on the correct ports
+Expected ports: `game-server → 4200`, `gameroom → 4100`
 
-Example ports:
-
-game-server → 4200
-
-gameroom → 4100
-
-Check on the Pi:
-
+```bash
 sudo ss -ltnp | grep -E '4100|4200'
+```
 
-You want to see the apps listening.
+You should see both apps listed as `LISTEN`.
 
-Example:
+> **Note:** If Spring Boot is packaging resources inside the JAR, use `getResourceAsStream()` instead of `new File(getResource(...).toURI())` — the latter fails inside a packaged JAR.
 
-LISTEN 0 100 *:4100 *:* users:(("java",pid=...,fd=...))
-LISTEN 0 100 *:4200 *:* users:(("java",pid=...,fd=...))
+## 6. Deploy scripts
 
-If Spring Boot is packaging resources inside the JAR, do not use new File(getResource(...).toURI()) for bundled files. Use getResourceAsStream() instead, otherwise it can fail inside a packaged JAR.
+**`deploy-game-server.sh`**
 
-## 6. Deploy from your laptop
-deploy-game-server.sh
+```bash
 #!/bin/bash
 set -e
 
@@ -200,7 +200,11 @@ echo "Restarting..."
 ssh -i ~/.ssh/pi_deploy_key my-pi "sudo systemctl restart game-server"
 
 echo "Done."
-deploy-gameroom.sh
+```
+
+**`deploy-gameroom.sh`**
+
+```bash
 #!/bin/bash
 set -e
 
@@ -217,99 +221,78 @@ echo "Restarting..."
 ssh -i ~/.ssh/pi_deploy_key my-pi "sudo systemctl restart gameroom"
 
 echo "Done."
+```
 
-Make scripts executable:
+Make both scripts executable:
 
-chmod +x deploy-game-server.sh
-chmod +x deploy-gameroom.sh
+```bash
+chmod +x deploy-game-server.sh deploy-gameroom.sh
+```
 
-Run them with:
+## 7. Check logs
 
-./deploy-game-server.sh
-./deploy-gameroom.sh
-## 7. Check logs if something fails
+```bash
+# Follow live
+journalctl -u game-server -f
+journalctl -u gameroom -f
 
-For game-server:
-
+# Last 100 lines (no pager)
 journalctl -u game-server -n 100 --no-pager
-
-For gameroom:
-
 journalctl -u gameroom -n 100 --no-pager
-## 8. Firewall on the Pi
+```
 
-Allow the required ports:
+## 8. Firewall
 
+```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 4100/tcp
 sudo ufw allow 4200/tcp
 sudo ufw enable
 sudo ufw status
-## 9. Test inside your own network first
+```
+
+## 9. Test on your local network first
 
 From another device on the same network:
 
+```bash
 curl http://<PI_IP>:4100
 curl http://<PI_IP>:4200
+```
 
-If this fails:
+If it fails:
+- Make sure both devices are on the same network (not guest Wi-Fi)
+- Verify the Pi's IP with `hostname -I`
 
-make sure both devices are on the same network
+## 10. Why it may still fail from outside your house (CGNAT)
 
-make sure you are not on guest Wi-Fi
+Even if the app works locally it may be unreachable from the internet. This happens when your ISP uses CGNAT: the public IP seen on the internet differs from your router's WAN IP, which makes port forwarding unreliable. The solution is a tunnel — see step 11.
 
-verify the Pi IP with:
+## 11. Expose publicly with Cloudflare Tunnel
 
-hostname -I
-## 10. Why it may still fail from outside your house
+Install cloudflared on the Pi (ARM64):
 
-Even if the app works locally, it may still be unreachable from the internet because of CGNAT.
-
-In this setup:
-
-public IP seen on the internet was different from the router WAN IP
-
-that means inbound port forwarding would not work reliably
-
-So instead of fighting the router, the solution was to use a tunnel.
-
-## 11. Expose the app publicly with Cloudflare Tunnel
-
-Install cloudflared manually on the Pi.
-
-For Raspberry Pi ARM64:
-
+```bash
 wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
 sudo dpkg -i cloudflared-linux-arm64.deb
 sudo apt-get install -f
 cloudflared --version
+```
 
-Start a temporary tunnel for gameroom:
+Start a temporary tunnel:
 
-cloudflared tunnel --url http://localhost:4100
+```bash
+cloudflared tunnel --url http://localhost:4100  # gameroom
+cloudflared tunnel --url http://localhost:4200  # game-server
+```
 
-Start a temporary tunnel for game-server:
+This gives a public `trycloudflare.com` URL immediately — no domain needed. It bypasses CGNAT but the URL is temporary and changes on restart.
 
-cloudflared tunnel --url http://localhost:4200
+## 12. Caddy (optional, if you have a domain)
 
-This gives a public trycloudflare.com URL that friends can use immediately.
+Caddy can act as a reverse proxy in front of both apps. If you have a domain with proper public routing, configure it like this:
 
-Important:
-
-the URL works
-
-it bypasses CGNAT
-
-it is temporary
-
-it changes when restarted
-
-## 12. Caddy note
-
-caddy was installed, but because there was no domain and the home network was behind CGNAT, the practical public solution was cloudflared.
-
-If you later get a domain or proper public routing, you can place Caddy in front of the apps like this:
-
+```
 game.example.com {
     reverse_proxy 127.0.0.1:4200
 }
@@ -317,40 +300,21 @@ game.example.com {
 gameroom.example.com {
     reverse_proxy 127.0.0.1:4100
 }
+```
+
 ## 13. Useful commands
 
-Check listening ports:
-
+```bash
+# Check what's listening
 sudo ss -ltnp | grep java
 
-Check services:
+# Service management
+sudo systemctl status game-server gameroom
+sudo systemctl restart game-server gameroom
 
-sudo systemctl status game-server
-sudo systemctl status gameroom
-
-Restart services:
-
-sudo systemctl restart game-server
-sudo systemctl restart gameroom
-
-View logs:
-
+# Live logs
 journalctl -u game-server -f
 journalctl -u gameroom -f
-## 14. Summary
+```
 
-Final setup:
-
-local build on laptop with Maven
-
-deploy over SSH using a dedicated key
-
-JARs stored under /opt/game-server and /opt/gameroom
-
-each app managed by its own systemd service
-
-firewall opened for required ports
-
-internal LAN testing first
-
-public access achieved with cloudflared because of CGNAT
+</details>

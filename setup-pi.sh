@@ -4,6 +4,23 @@ set -e
 SSH="ssh -i ~/.ssh/pi_deploy_key my-pi"
 SCP="scp -i ~/.ssh/pi_deploy_key"
 
+CONFIG_FILE="./deploy.local.conf"
+
+USE_NAMED_TUNNEL=false
+
+if [ -s "$CONFIG_FILE" ]; then
+  source "$CONFIG_FILE"
+
+  if [ -n "$DOMAIN" ] && [ -n "$TUNNEL_ID" ] && [ -n "$CREDENTIALS_FILE" ]; then
+    USE_NAMED_TUNNEL=true
+  else
+    echo "⚠️  $CONFIG_FILE exists but is missing DOMAIN, TUNNEL_ID, or CREDENTIALS_FILE."
+    echo "   Falling back to random trycloudflare tunnel."
+  fi
+else
+  echo "ℹ️  No non-empty $CONFIG_FILE found. Using random trycloudflare tunnel."
+fi
+
 echo "📁 Creating directory..."
 $SSH "sudo mkdir -p /opt/gameroom"
 
@@ -15,7 +32,7 @@ $SCP nginx.conf my-pi:/home/ubuntu/gameroom-nginx.conf
 $SSH "sudo mv /home/ubuntu/gameroom-nginx.conf /etc/nginx/sites-available/gameroom && \
       sudo ln -sf /etc/nginx/sites-available/gameroom /etc/nginx/sites-enabled/gameroom && \
       sudo rm -f /etc/nginx/sites-enabled/default && \
-      sudo fuser -k 80/tcp; sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx"
+      sudo fuser -k 80/tcp || true; sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx"
 
 echo "⚙️  Installing gameroom systemd service..."
 $SSH "sudo tee /etc/systemd/system/gameroom.service > /dev/null << 'EOF'
@@ -40,8 +57,48 @@ $SSH "if ! command -v cloudflared &>/dev/null; then
   sudo chmod +x /usr/local/bin/cloudflared
 fi"
 
-echo "⚙️  Installing cloudflared quick-tunnel systemd service..."
-$SSH "sudo tee /etc/systemd/system/cloudflared.service > /dev/null << 'EOF'
+if [ "$USE_NAMED_TUNNEL" = true ]; then
+  echo "⚙️  Installing cloudflared named tunnel config for $DOMAIN..."
+
+  TMP_CLOUDFLARED_CONFIG="$(mktemp)"
+
+  cat > "$TMP_CLOUDFLARED_CONFIG" <<EOF
+tunnel: $TUNNEL_ID
+credentials-file: $CREDENTIALS_FILE
+
+ingress:
+  - hostname: $DOMAIN
+    service: http://localhost:80
+  - service: http_status:404
+EOF
+
+  $SSH "sudo mkdir -p /etc/cloudflared"
+  $SCP "$TMP_CLOUDFLARED_CONFIG" my-pi:/home/ubuntu/cloudflared-config.yml
+  rm -f "$TMP_CLOUDFLARED_CONFIG"
+
+  $SSH "sudo mv /home/ubuntu/cloudflared-config.yml /etc/cloudflared/config.yml"
+
+  echo "⚙️  Installing cloudflared named-tunnel systemd service..."
+  $SSH "sudo tee /etc/systemd/system/cloudflared.service > /dev/null << 'EOF'
+[Unit]
+Description=Cloudflare Named Tunnel
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloudflared tunnel run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF"
+
+else
+  echo "⚙️  Installing cloudflared quick-tunnel systemd service..."
+
+  $SSH "sudo rm -f /etc/cloudflared/config.yml || true"
+
+  $SSH "sudo tee /etc/systemd/system/cloudflared.service > /dev/null << 'EOF'
 [Unit]
 Description=Cloudflare Quick Tunnel
 After=network.target
@@ -54,7 +111,11 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF"
-$SSH "sudo systemctl daemon-reload && sudo systemctl enable cloudflared && sudo systemctl start cloudflared"
+fi
+
+$SSH "sudo systemctl daemon-reload && \
+      sudo systemctl enable cloudflared && \
+      sudo systemctl restart cloudflared"
 
 echo "📝 Writing games config..."
 $SCP GameRoom-server/src/main/resources/games.yaml my-pi:/home/ubuntu/games.yaml
@@ -63,5 +124,9 @@ $SSH "sudo mv /home/ubuntu/games.yaml /opt/gameroom/games.yaml"
 echo ""
 echo "✅ Pi setup complete."
 echo "   Run ./deploy.sh to deploy the application."
-echo ""
-echo "   To find your public tunnel URL, run: ./get-tunnel-url.sh"
+
+if [ "$USE_NAMED_TUNNEL" = true ]; then
+  echo "   Public URL: https://$DOMAIN"
+else
+  echo "   To find your public tunnel URL, run: ./get-tunnel-url.sh"
+fi
