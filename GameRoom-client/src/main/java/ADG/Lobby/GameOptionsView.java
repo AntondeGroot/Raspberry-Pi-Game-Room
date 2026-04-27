@@ -1,5 +1,6 @@
 package ADG.Lobby;
 
+import ADG.i18n.I18n;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
@@ -7,6 +8,7 @@ import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.FlowPanel;
+import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.TextBox;
@@ -19,13 +21,17 @@ public class GameOptionsView extends Composite {
     interface Binder extends UiBinder<Widget, GameOptionsView> {}
     private static Binder uiBinder = GWT.create(Binder.class);
 
-    @UiField FlowPanel  gameSpecificOptionsPanel;
-    @UiField CheckBox   uniqueProfilePicsCheckbox;
-    @UiField FlowPanel  maxPlayersField;
-    @UiField TextBox    maxPlayersInput;
-    @UiField Label      maxPlayersRangeHint;
-    @UiField Button     confirmButton;
-    @UiField Button     cancelButton;
+    @UiField HTML      pageTitle;
+    @UiField HTML      roomSettingsTitle;
+    @UiField HTML      gameSettingsTitle;
+    @UiField FlowPanel gameSpecificOptionsPanel;
+    @UiField CheckBox  uniqueProfilePicsCheckbox;
+    @UiField FlowPanel maxPlayersField;
+    @UiField Label     maxPlayersLabel;
+    @UiField TextBox   maxPlayersInput;
+    @UiField Label     maxPlayersRangeHint;
+    @UiField Button    confirmButton;
+    @UiField Button    cancelButton;
 
     private int minBound;
     private int maxBound;
@@ -34,6 +40,13 @@ public class GameOptionsView extends Composite {
 
     public GameOptionsView() {
         initWidget(uiBinder.createAndBindUi(this));
+        pageTitle.setHTML("<h1>" + I18n.c().gameOptions() + "</h1>");
+        roomSettingsTitle.setHTML("<h2 class=\"section-title\">" + I18n.c().roomSettings() + "</h2>");
+        gameSettingsTitle.setHTML("<h2 class=\"section-title\">" + I18n.c().gameSettings() + "</h2>");
+        uniqueProfilePicsCheckbox.setText(I18n.c().uniqueProfilePictures());
+        maxPlayersLabel.setText(I18n.c().maximumNumberOfPlayers());
+        cancelButton.setText(I18n.c().cancel());
+        confirmButton.setText(I18n.c().continueButton());
     }
 
     public void init(Room room) {

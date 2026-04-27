@@ -3,6 +3,7 @@ package ADG.Lobby;
 import ADG.*;
 import ADG.Utils.Cookie;
 import ADG.audio.AudioPlayer;
+import ADG.i18n.I18n;
 import ADG.Utils.PollingService;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.*;
@@ -53,15 +54,15 @@ public class LobbyPresenter implements Presenter {
         view.getCreateRoomButton().addClickHandler(event -> {
             String roomName = view.getRoomNameInput().getText().trim();
             if (roomName.isEmpty()) {
-                AudioPlayer.errorAlert("Room name cannot be empty.");
+                AudioPlayer.errorAlert(I18n.c().errRoomNameEmpty());
                 return;
             }
             if (roomName.length() < 3) {
-                AudioPlayer.errorAlert("Room name must be at least 3 characters.");
+                AudioPlayer.errorAlert(I18n.c().errRoomNameTooShort());
                 return;
             }
             if (roomName.length() > 20) {
-                AudioPlayer.errorAlert("Room name cannot exceed 20 characters.");
+                AudioPlayer.errorAlert(I18n.c().errRoomNameTooLong());
                 return;
             }
             AudioPlayer.play(AudioPlayer.BUTTON_CLICK);
@@ -174,14 +175,14 @@ public class LobbyPresenter implements Presenter {
     private void createRoom(String roomName) {
         String gameId = view.getSelectedGameId();
         if (gameId == null) {
-            AudioPlayer.errorAlert("Please select a game.");
+            AudioPlayer.errorAlert(I18n.c().errSelectGame());
             return;
         }
         // Fast client-side check against cached list before hitting the server
         boolean nameExists = rooms.stream()
                 .anyMatch(r -> r.getName().equalsIgnoreCase(roomName));
         if (nameExists) {
-            AudioPlayer.errorAlert("A room with this name already exists.");
+            AudioPlayer.errorAlert(I18n.c().errRoomNameExists());
             return;
         }
         String playerId = Cookie.getPlayerId();
@@ -189,9 +190,7 @@ public class LobbyPresenter implements Presenter {
                 .filter(r -> r.getPlayerIds().contains(playerId))
                 .findFirst().orElse(null);
         if (currentRoom != null) {
-            boolean confirmed = Window.confirm(
-                    "You are currently in room '" + currentRoom.getName() + "'. " +
-                    "Creating a new room will remove you from it. Continue?");
+            boolean confirmed = Window.confirm(I18n.m().confirmLeaveRoom(currentRoom.getName()));
             if (!confirmed) return;
         }
         Room room = new Room(roomName, playerId);
@@ -200,7 +199,7 @@ public class LobbyPresenter implements Presenter {
         roomService.createRoom(room, new AsyncCallback<Room>() {
             @Override
             public void onFailure(Throwable t) {
-                view.showAlert("Could not create room: " + t.getMessage());
+                view.showAlert(I18n.m().errCouldNotCreateRoom(t.getMessage()));
             }
             @Override
             public void onSuccess(Room created) {
@@ -236,7 +235,7 @@ public class LobbyPresenter implements Presenter {
     }
 
     private void deleteRoomAsAdmin(Room room) {
-        if (!Window.confirm("Delete room '" + room.getName() + "'?")) return;
+        if (!Window.confirm(I18n.m().confirmDeleteRoomNamed(room.getName()))) return;
         RequestBuilder rb = new RequestBuilder(RequestBuilder.DELETE, "/admin/rooms/" + room.getId());
         rb.setHeader("Accept", "application/json");
         try {
@@ -247,14 +246,14 @@ public class LobbyPresenter implements Presenter {
                         // Table updates on next poll automatically
                     } else if (response.getStatusCode() == Response.SC_UNAUTHORIZED
                                || response.getStatusCode() == Response.SC_FORBIDDEN) {
-                        view.showAlert("Not authorised — please log in as admin first.");
+                        view.showAlert(I18n.c().errNotAuthorised());
                     } else {
-                        view.showAlert("Delete failed (HTTP " + response.getStatusCode() + ")");
+                        view.showAlert(I18n.m().errDeleteFailedHttp(response.getStatusCode()));
                     }
                 }
                 @Override
                 public void onError(Request request, Throwable exception) {
-                    view.showAlert("Delete failed: " + exception.getMessage());
+                    view.showAlert(I18n.m().errDeleteFailed(exception.getMessage()));
                 }
             });
         } catch (RequestException e) {

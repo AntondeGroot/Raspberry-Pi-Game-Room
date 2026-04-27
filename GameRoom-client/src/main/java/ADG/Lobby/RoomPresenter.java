@@ -2,6 +2,7 @@ package ADG.Lobby;
 
 import ADG.*;
 import ADG.audio.AudioPlayer;
+import ADG.i18n.I18n;
 import ADG.Utils.ChatCipher;
 import ADG.Utils.Cookie;
 import ADG.Utils.PollingService;
@@ -121,11 +122,11 @@ public class RoomPresenter implements Presenter {
     }
 
     private void sendLeaveMessage() {
-        sendMessageToServer("has left the room");
+        sendMessageToServer(I18n.c().hasLeftTheRoom());
     }
 
     private void deleteRoom() {
-        boolean confirmDelete = Window.confirm("Are you sure you want to delete this room?");
+        boolean confirmDelete = Window.confirm(I18n.c().confirmDeleteRoom());
         if (!confirmDelete) return;
         if (isAdmin) {
             // Admins delete via the Spring Security-protected REST endpoint.
@@ -150,12 +151,12 @@ public class RoomPresenter implements Presenter {
                     if (response.getStatusCode() == Response.SC_NO_CONTENT) {
                         presenterManager.switchToLobby();
                     } else {
-                        Window.alert("Delete failed (HTTP " + response.getStatusCode() + ")");
+                        Window.alert(I18n.m().errDeleteFailedHttp(response.getStatusCode()));
                     }
                 }
                 @Override
                 public void onError(Request request, Throwable exception) {
-                    Window.alert("Delete failed: " + exception.getMessage());
+                    Window.alert(I18n.m().errDeleteFailed(exception.getMessage()));
                 }
             });
         } catch (RequestException e) {

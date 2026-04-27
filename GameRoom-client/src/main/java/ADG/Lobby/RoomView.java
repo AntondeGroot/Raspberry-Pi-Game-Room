@@ -1,6 +1,7 @@
 package ADG.Lobby;
 
 import ADG.Utils.Cookie;
+import ADG.i18n.I18n;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.HeadingElement;
@@ -50,6 +51,10 @@ public class RoomView extends Composite {
 
     public RoomView() {
         initWidget(uiBinder.createAndBindUi(this));
+        startGameButton.setText(I18n.c().startGame());
+        leaveRoomButton.setText(I18n.c().leaveRoom());
+        deleteRoomButton.setText(I18n.c().deleteRoom());
+        sendMessageButton.setText(I18n.c().send());
     }
 
     public Button getLeaveRoomButton() { return leaveRoomButton; }
@@ -322,7 +327,7 @@ public class RoomView extends Composite {
         if (isCreator) {
             if (!enoughPlayers) {
                 int missing = room.getMinPlayers() - room.getPlayerNames().size();
-                startInfoLabel.setText("Waiting for " + missing + " more player" + (missing == 1 ? "" : "s") + " to join.");
+                startInfoLabel.setText(I18n.m().waitingForPlayers(missing));
                 startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
                 startInfoLabel.setVisible(true);
             } else {
@@ -330,8 +335,8 @@ public class RoomView extends Composite {
             }
         } else {
             String creatorName = room.getPlayerNames().get(room.getCreatedByUserId());
-            if (creatorName == null) creatorName = "the host";
-            startInfoLabel.setText(creatorName + " will start the game.");
+            if (creatorName == null) creatorName = I18n.c().theHost();
+            startInfoLabel.setText(I18n.m().willStartTheGame(creatorName));
             startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
             startInfoLabel.setVisible(true);
         }
@@ -369,6 +374,6 @@ public class RoomView extends Composite {
     }-*/;
 
     public void showRoomName(String roomName) {
-        roomTitle.setInnerText("Room : " + roomName);
+        roomTitle.setInnerText(I18n.c().roomPrefix() + " " + roomName);
     }
 }

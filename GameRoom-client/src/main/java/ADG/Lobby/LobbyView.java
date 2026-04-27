@@ -1,6 +1,8 @@
 package ADG.Lobby;
 
+import ADG.Utils.Cookie;
 import ADG.audio.AudioPlayer;
+import ADG.i18n.I18n;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.ChangeHandler;
 import com.google.gwt.uibinder.client.UiBinder;
@@ -18,6 +20,10 @@ public class LobbyView extends Composite {
 
     @UiField VerticalPanel mainPanel;
     @UiField FlowPanel createRoomPanel;
+    @UiField HTML lobbyTitle;
+    @UiField HTML createRoomTitle;
+    @UiField Label roomNameLabel;
+    @UiField Label selectGameLabel;
     @UiField TextBox roomNameInput;
     @UiField Button createRoomButton;
     @UiField Label availableRoomsHeader;
@@ -40,6 +46,12 @@ public class LobbyView extends Composite {
 
     public LobbyView() {
         initWidget(uiBinder.createAndBindUi(this));
+        lobbyTitle.setHTML("<h1>" + I18n.c().gameLobby() + "</h1>");
+        createRoomTitle.setHTML("<h2 class=\"section-title\">" + I18n.c().createARoom() + "</h2>");
+        roomNameLabel.setText(I18n.c().roomName());
+        selectGameLabel.setText(I18n.c().selectGame());
+        createRoomButton.setText(I18n.c().createRoom());
+        availableRoomsHeader.setText(I18n.c().availableRooms());
         buildTableHeader();
     }
 
@@ -103,11 +115,11 @@ public class LobbyView extends Composite {
     private void buildTableHeader() {
         FlowPanel header = new FlowPanel();
         header.setStyleName("room-table-header");
-        header.add(makeHeaderCell("Room Name", "room-cell-name"));
-        header.add(makeHeaderCell("Game", "room-cell-game"));
-        header.add(makeHeaderCell("Players", "room-cell-players"));
-        header.add(makeHeaderCell("Status", "room-cell-status"));
-        header.add(makeHeaderCell("", "room-cell-action"));
+        header.add(makeHeaderCell(I18n.c().colRoomName(), "room-cell-name"));
+        header.add(makeHeaderCell(I18n.c().colGame(),     "room-cell-game"));
+        header.add(makeHeaderCell(I18n.c().colPlayers(),  "room-cell-players"));
+        header.add(makeHeaderCell(I18n.c().colStatus(),   "room-cell-status"));
+        header.add(makeHeaderCell("",                     "room-cell-action"));
         roomTableContainer.add(header);
     }
 
@@ -135,12 +147,12 @@ public class LobbyView extends Composite {
         actionCell.setStyleName("room-table-cell room-cell-action");
         boolean isMember = currentPlayerId != null && room.getPlayerIds().contains(currentPlayerId);
         if (isMember) {
-            Button rejoinBtn = new Button("Rejoin");
+            Button rejoinBtn = new Button(I18n.c().rejoin());
             rejoinBtn.setStylePrimaryName("joinRoomButton");
             rejoinBtn.addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); if (joinHandler != null) joinHandler.onJoin(room); });
             actionCell.add(rejoinBtn);
         } else if (GameStatus.WAITING.equals(room.getStatus())) {
-            Button joinBtn = new Button("Join");
+            Button joinBtn = new Button(I18n.c().join());
             joinBtn.setStylePrimaryName("joinRoomButton");
             joinBtn.addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); if (joinHandler != null) joinHandler.onJoin(room); });
             actionCell.add(joinBtn);
@@ -164,9 +176,9 @@ public class LobbyView extends Composite {
 
     private String getStatusText(GameStatus status) {
         switch (status) {
-            case PLAYING: return "Playing";
-            case WAITING: return "Waiting...";
-            case FULL:    return "Full";
+            case PLAYING: return I18n.c().statusPlaying();
+            case WAITING: return I18n.c().statusWaiting();
+            case FULL:    return I18n.c().statusFull();
             default:      return "";
         }
     }
