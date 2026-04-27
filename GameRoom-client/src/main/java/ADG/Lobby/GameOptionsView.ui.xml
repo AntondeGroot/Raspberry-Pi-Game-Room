@@ -2,16 +2,16 @@
 <ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
              xmlns:g="urn:import:com.google.gwt.user.client.ui">
     <g:VerticalPanel styleName="characterPanel">
-        <g:HTML><h1>Game Options</h1></g:HTML>
+        <g:HTML ui:field="pageTitle"><h1>Game Options</h1></g:HTML>
         <g:FlowPanel styleName="game-options-card">
-            <g:HTML><h2 class="section-title">Room Settings</h2></g:HTML>
+            <g:HTML ui:field="roomSettingsTitle"><h2 class="section-title">Room Settings</h2></g:HTML>
             <g:FlowPanel styleName="game-options-field">
                 <g:CheckBox ui:field="uniqueProfilePicsCheckbox"
                             text="Unique profile pictures"
                             styleName="game-options-checkbox"/>
             </g:FlowPanel>
             <g:FlowPanel ui:field="maxPlayersField" styleName="game-options-field-inline">
-                <g:Label text="Maximum number of players" styleName="game-options-label"/>
+                <g:Label ui:field="maxPlayersLabel" text="Maximum number of players" styleName="game-options-label"/>
                 <g:FlowPanel styleName="game-options-number-row">
                     <g:TextBox ui:field="maxPlayersInput" styleName="game-options-number-input"/>
                     <g:Label ui:field="maxPlayersRangeHint" styleName="game-options-range-hint"/>
@@ -19,7 +19,7 @@
             </g:FlowPanel>
         </g:FlowPanel>
         <g:FlowPanel ui:field="gameSpecificOptionsPanel" styleName="game-options-card" visible="false">
-            <g:HTML><h2 class="section-title">Game Settings</h2></g:HTML>
+            <g:HTML ui:field="gameSettingsTitle"><h2 class="section-title">Game Settings</h2></g:HTML>
         </g:FlowPanel>
         <g:FlowPanel styleName="game-options-actions">
             <g:Button ui:field="cancelButton" text="Cancel" stylePrimaryName="cancelButton"/>

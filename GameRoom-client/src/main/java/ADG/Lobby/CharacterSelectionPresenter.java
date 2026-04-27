@@ -3,6 +3,7 @@ package ADG.Lobby;
 import ADG.*;
 import ADG.audio.AudioPlayer;
 import ADG.Utils.Cookie;
+import ADG.i18n.I18n;
 import ADG.Utils.PollingService;
 import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.Context2d;
@@ -46,7 +47,7 @@ public class CharacterSelectionPresenter implements Presenter {
         confirmReg = view.getConfirmButton().addClickHandler(event -> onConfirm());
         cancelReg  = view.getCancelButton().addClickHandler(event -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); onBackToLobby(); });
         selectedProfileIndex = -1;
-        view.getSelectedProfileLabel().setText("No profile picture selected");
+        view.getSelectedProfileLabel().setText(I18n.c().noProfilePictureSelected());
         view.getUsernameInput().setText(ADG.Utils.Cookie.getUsername());
         loadProfilePictures();
         if (room.isUniqueProfilePics()) {
@@ -83,8 +84,8 @@ public class CharacterSelectionPresenter implements Presenter {
                     room.getPlayerProfiles().putAll(updatedRoom.getPlayerProfiles());
                     if (selectionTaken) {
                         selectedProfileIndex = -1;
-                        view.getSelectedProfileLabel().setText("No profile picture selected");
-                        view.showAlert("Your selected profile was taken by another player.");
+                        view.getSelectedProfileLabel().setText(I18n.c().noProfilePictureSelected());
+                        view.showAlert(I18n.c().errProfileTaken());
                     }
                     loadProfilePictures();
                 }
@@ -185,11 +186,11 @@ public class CharacterSelectionPresenter implements Presenter {
     private void onConfirm() {
         String username = view.getUsernameInput().getText().trim();
         if (username.isEmpty()) {
-            AudioPlayer.errorAlert("Please enter a username.");
+            AudioPlayer.errorAlert(I18n.c().errPleaseEnterUsername());
             return;
         }
         if (selectedProfileIndex == -1) {
-            AudioPlayer.errorAlert("Please select a profile picture.");
+            AudioPlayer.errorAlert(I18n.c().errSelectProfilePicture());
             return;
         }
         AudioPlayer.play(AudioPlayer.BUTTON_CLICK);
@@ -199,19 +200,19 @@ public class CharacterSelectionPresenter implements Presenter {
         if (isCreator()) {
             roomService.addPlayerIdToRoom(Cookie.getPlayerId(), room.getId(), new AsyncCallback<Void>() {
                 @Override public void onFailure(Throwable t) {
-                    view.showAlert("Failed to join room: " + t.getMessage());
+                    view.showAlert(I18n.m().errFailedToJoinRoom(t.getMessage()));
                 }
                 @Override public void onSuccess(Void v) {}
             });
             roomService.setUsernameAndProfile(room, Cookie.getPlayerId(), username,
                     String.valueOf(selectedProfileIndex), new AsyncCallback<Void>() {
                 @Override public void onFailure(Throwable t) {
-                    view.showAlert("Failed to set profile: " + t.getMessage());
+                    view.showAlert(I18n.m().errFailedToSetProfile(t.getMessage()));
                 }
                 @Override public void onSuccess(Void unused) {
                     roomService.publishRoom(room.getId(), new AsyncCallback<Void>() {
                         @Override public void onFailure(Throwable t) {
-                            view.showAlert("Failed to open room: " + t.getMessage());
+                            view.showAlert(I18n.m().errFailedToOpenRoom(t.getMessage()));
                         }
                         @Override public void onSuccess(Void v) {
                             presenterManager.switchToGameRoom(room);
@@ -223,7 +224,7 @@ public class CharacterSelectionPresenter implements Presenter {
             roomService.setUsernameAndProfile(room, Cookie.getPlayerId(), username,
                     String.valueOf(selectedProfileIndex), new AsyncCallback<Void>() {
                 @Override public void onFailure(Throwable t) {
-                    view.showAlert("Failed to set profile: " + t.getMessage());
+                    view.showAlert(I18n.m().errFailedToSetProfile(t.getMessage()));
                 }
                 @Override public void onSuccess(Void unused) {
                     presenterManager.switchToGameRoom(room);

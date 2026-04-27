@@ -1,18 +1,18 @@
 <ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
              xmlns:g="urn:import:com.google.gwt.user.client.ui">
     <g:VerticalPanel ui:field="mainPanel" styleName="characterPanel">
-        <g:HTML>
+        <g:HTML ui:field="pageTitle">
             <h1>Character Selection</h1>
         </g:HTML>
         <g:FlowPanel styleName="steps-container">
             <g:FlowPanel styleName="step-header">
                 <g:HTML><span class="step-badge">1</span></g:HTML>
-                <g:HTML><span class="step-label">Enter Username</span></g:HTML>
+                <g:HTML ui:field="enterUsernameLabel"><span class="step-label">Enter Username</span></g:HTML>
                 <g:TextBox ui:field="usernameInput"/>
             </g:FlowPanel>
             <g:FlowPanel styleName="step-header">
                 <g:HTML><span class="step-badge">2</span></g:HTML>
-                <g:HTML><span class="step-label">Select Your Profile Picture</span></g:HTML>
+                <g:HTML ui:field="selectProfileLabel"><span class="step-label">Select Your Profile Picture</span></g:HTML>
             </g:FlowPanel>
         </g:FlowPanel>
         <g:FlowPanel ui:field="profilePicGrid" styleName="profile-pic-grid"/>

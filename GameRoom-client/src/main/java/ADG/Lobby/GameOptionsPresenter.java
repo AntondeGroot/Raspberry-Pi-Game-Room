@@ -3,6 +3,7 @@ package ADG.Lobby;
 import ADG.Presenter;
 import ADG.PresenterManager;
 import ADG.audio.AudioPlayer;
+import ADG.i18n.I18n;
 import com.google.gwt.event.shared.HandlerRegistration;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -57,7 +58,7 @@ public class GameOptionsPresenter implements Presenter {
     private void onConfirm() {
         int maxPlayers = view.getMaxPlayers();
         if (maxPlayers < view.getMinBound() || maxPlayers > view.getMaxBound()) {
-            Window.alert("Maximum players must be between " + view.getMinBound() + " and " + view.getMaxBound() + ".");
+            Window.alert(I18n.m().errMaxPlayersBetween(view.getMinBound(), view.getMaxBound()));
             return;
         }
         room.setMaxPlayers(maxPlayers);
@@ -69,7 +70,7 @@ public class GameOptionsPresenter implements Presenter {
         // Persist the options to the server before proceeding, so joining players see them
         roomService.updateRoom(room, new AsyncCallback<Void>() {
             @Override public void onFailure(Throwable t) {
-                Window.alert("Failed to save room options: " + t.getMessage());
+                Window.alert(I18n.m().errFailedToSaveOptions(t.getMessage()));
             }
             @Override public void onSuccess(Void v) {
                 presenterManager.switchToCharacterSelection(room);
