@@ -9,7 +9,7 @@ This project was written in GWT in order to get a better understanding of it, si
 ## Tock / Keezenspel
 
 <p align="center">
-   https://github.com/AntondeGroot/GWT_Keezenspel
+   <a href="https://github.com/AntondeGroot/GWT_Keezenspel"><strong>View Repository</strong></a><br><br>
    <img width="500" alt="image" src="https://github.com/user-attachments/assets/70e1ac8a-416e-4b8a-9593-5207419b20b4" />
 </p>
 
