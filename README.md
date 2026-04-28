@@ -4,16 +4,17 @@ This project was written in GWT in order to get a better understanding of it, si
 <p align="center">
    <img width="500" alt="image" src="https://github.com/user-attachments/assets/7035146e-9a82-42ae-85d1-6f7a33bca0a2" />
 </p>
+
 # Games
 
-## Tock / Keezenspel
+## 1. Tock / Keezenspel
 
 <p align="center">
    <a href="https://github.com/AntondeGroot/GWT_Keezenspel"><strong>View Repository</strong></a><br><br>
    <img width="500" alt="image" src="https://github.com/user-attachments/assets/70e1ac8a-416e-4b8a-9593-5207419b20b4" />
 </p>
 
-## Qwixx
+## 2. Qwixx
 
 <p align="center">
    <a href="https://github.com/AntondeGroot/Qwixx"><strong>View Repository</strong></a><br><br>
