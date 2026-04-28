@@ -842,8 +842,8 @@ td, th, span, p, div, label {
    ============================================= */
 #lang-selector-root {
   position: fixed;
-  top: 12px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   z-index: 1000;
 }
 
