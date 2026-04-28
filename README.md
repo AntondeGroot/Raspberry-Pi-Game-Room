@@ -14,9 +14,9 @@ This project was written in GWT in order to get a better understanding of it, si
 </p>
 
 ## Qwixx
-https://github.com/AntondeGroot/Qwixx
 
 <p align="center">
+   <a href="https://github.com/AntondeGroot/Qwixx"><strong>View Repository</strong></a><br><br>
    <img width="500" alt="image" src="https://github.com/user-attachments/assets/c0e45ab8-958e-4570-a303-cb2ba45c19c4" />
 </p>
 
