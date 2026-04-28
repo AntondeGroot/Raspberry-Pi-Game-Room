@@ -3,6 +3,7 @@ package ADG.services;
 import ADG.Lobby.GameDefinition;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
+import ADG.Lobby.RoomServiceException;
 import ADG.config.GamesConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,18 +66,18 @@ class RoomServiceImplTest {
     // ── getRooms ─────────────────────────────────────────────────────────────
 
     @Test
-    void getRoomsStartsEmpty() {
+    void getRoomsStartsEmpty() throws RoomServiceException {
         assertTrue(service.getRooms().isEmpty());
     }
 
     @Test
-    void getRoomsHidesPendingRooms() {
+    void getRoomsHidesPendingRooms() throws RoomServiceException {
         service.createRoom(buildRoom("Alpha"));
         assertTrue(service.getRooms().isEmpty(), "PENDING room must not appear in lobby list");
     }
 
     @Test
-    void getRoomsShowsPublishedRoom() {
+    void getRoomsShowsPublishedRoom() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -87,7 +88,7 @@ class RoomServiceImplTest {
     // ── createRoom ───────────────────────────────────────────────────────────
 
     @Test
-    void createRoomAddsAndReturnsRoom() {
+    void createRoomAddsAndReturnsRoom() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         Room result = service.createRoom(room);
 
@@ -99,7 +100,7 @@ class RoomServiceImplTest {
     // ── publishRoom ──────────────────────────────────────────────────────────
 
     @Test
-    void publishRoomMakesRoomVisible() {
+    void publishRoomMakesRoomVisible() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -107,7 +108,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void publishRoomSetsStatusToWaiting() {
+    void publishRoomSetsStatusToWaiting() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -115,7 +116,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void publishRoomOnNonPendingRoomIsNoOp() {
+    void publishRoomOnNonPendingRoomIsNoOp() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -125,48 +126,48 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void publishRoomOnUnknownIdIsNoOp() {
+    void publishRoomOnUnknownIdIsNoOp() throws RoomServiceException {
         service.publishRoom("non-existent-id"); // must not throw
         assertTrue(service.getRooms().isEmpty());
     }
 
     @Test
-    void createRoomWithBlankNameThrows() {
+    void createRoomWithBlankNameThrows() throws RoomServiceException {
         Room room = buildRoom("   ");
-        assertThrows(IllegalArgumentException.class, () -> service.createRoom(room));
+        assertThrows(RoomServiceException.class, () -> service.createRoom(room));
         assertTrue(service.getRooms().isEmpty());
     }
 
     @Test
-    void createRoomDuplicateThrows() {
+    void createRoomDuplicateThrows() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
-        assertThrows(IllegalArgumentException.class, () -> service.createRoom(room));
+        assertThrows(RoomServiceException.class, () -> service.createRoom(room));
         assertNotNull(service.getRoomById(room.getId()), "original room must still exist");
     }
 
     @Test
-    void createRoomDuplicateNameDifferentObjectThrows() {
+    void createRoomDuplicateNameDifferentObjectThrows() throws RoomServiceException {
         // Same name but different object (different players/status) — the real duplicate-name bug
         Room original = buildRoom("Alpha");
         service.createRoom(original);
         Room other = buildRoom("Alpha");
         other.addPlayer("some-player");
-        assertThrows(IllegalArgumentException.class, () -> service.createRoom(other));
+        assertThrows(RoomServiceException.class, () -> service.createRoom(other));
         assertNotNull(service.getRoomById(original.getId()), "original room must still exist");
     }
 
     @Test
-    void createRoomDuplicateNameCaseInsensitiveThrows() {
+    void createRoomDuplicateNameCaseInsensitiveThrows() throws RoomServiceException {
         Room original = buildRoom("Alpha");
         service.createRoom(original);
-        assertThrows(IllegalArgumentException.class, () -> service.createRoom(buildRoom("alpha")));
-        assertThrows(IllegalArgumentException.class, () -> service.createRoom(buildRoom("ALPHA")));
+        assertThrows(RoomServiceException.class, () -> service.createRoom(buildRoom("alpha")));
+        assertThrows(RoomServiceException.class, () -> service.createRoom(buildRoom("ALPHA")));
         assertNotNull(service.getRoomById(original.getId()), "original room must still exist");
     }
 
     @Test
-    void createRoomSetsMinPlayersFromConfig() {
+    void createRoomSetsMinPlayersFromConfig() throws RoomServiceException {
         GameDefinition game = mock(GameDefinition.class);
         when(game.getMinPlayers()).thenReturn(4);
         when(gamesConfig.findById("keezen")).thenReturn(Optional.of(game));
@@ -178,7 +179,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void createRoomSetsMaxPlayersFromConfig() {
+    void createRoomSetsMaxPlayersFromConfig() throws RoomServiceException {
         GameDefinition game = mock(GameDefinition.class);
         when(game.getMaxPlayers()).thenReturn(6);
         when(gamesConfig.findById("keezen")).thenReturn(Optional.of(game));
@@ -190,21 +191,21 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void createRoomLeavesMinPlayersAtDefaultWhenGameNotFound() {
+    void createRoomLeavesMinPlayersAtDefaultWhenGameNotFound() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         assertEquals(1, room.getMinPlayers()); // Room default
     }
 
     @Test
-    void createRoomLeavesMaxPlayersAtDefaultWhenGameNotFound() {
+    void createRoomLeavesMaxPlayersAtDefaultWhenGameNotFound() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         assertEquals(8, room.getMaxPlayers()); // Room default
     }
 
     @Test
-    void createRoomRemovesCreatorFromPreviousRoom() {
+    void createRoomRemovesCreatorFromPreviousRoom() throws RoomServiceException {
         Room roomA = buildRoom("Alpha");
         service.createRoom(roomA);
         service.publishRoom(roomA.getId());
@@ -221,7 +222,7 @@ class RoomServiceImplTest {
     // ── getRoomById ──────────────────────────────────────────────────────────
 
     @Test
-    void getRoomByIdFindsExistingRoom() {
+    void getRoomByIdFindsExistingRoom() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
 
@@ -230,14 +231,14 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void getRoomByIdReturnsNullForUnknownId() {
+    void getRoomByIdReturnsNullForUnknownId() throws RoomServiceException {
         assertNull(service.getRoomById("does-not-exist"));
     }
 
     // ── deleteEmptyRooms ─────────────────────────────────────────────────────
 
     @Test
-    void emptyRoomIsDeletedAfterTtlExpires() {
+    void emptyRoomIsDeletedAfterTtlExpires() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -253,7 +254,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void emptyRoomIsKeptIfTtlHasNotExpired() {
+    void emptyRoomIsKeptIfTtlHasNotExpired() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -266,7 +267,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void roomWithPlayersIsNotScheduledForDeletion() {
+    void roomWithPlayersIsNotScheduledForDeletion() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -279,7 +280,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void joiningRoomCancelsEmptyTimer() {
+    void joiningRoomCancelsEmptyTimer() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -292,7 +293,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void pendingRoomIsNotScheduledForDeletion() {
+    void pendingRoomIsNotScheduledForDeletion() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room); // status is PENDING, no players
 
@@ -307,7 +308,7 @@ class RoomServiceImplTest {
     // Authorization is enforced by checking the playerid cookie against the room creator.
 
     @Test
-    void deleteRoomByCreatorRemovesIt() {
+    void deleteRoomByCreatorRemovesIt() throws RoomServiceException {
         // Default spy returns "creator-1" which matches buildRoom()'s createdByUserId.
         Room room = buildRoom("Alpha");
         service.createRoom(room);
@@ -319,7 +320,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void deleteRoomByNonCreatorIsRejected() {
+    void deleteRoomByNonCreatorIsRejected() throws RoomServiceException {
         doReturn("stranger").when(service).getPlayerIdFromRequest();
         Room room = buildRoom("Alpha");
         service.createRoom(room);
@@ -331,7 +332,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void deleteRoomWithNoCallerCookieIsRejected() {
+    void deleteRoomWithNoCallerCookieIsRejected() throws RoomServiceException {
         doReturn("").when(service).getPlayerIdFromRequest();
         Room room = buildRoom("Alpha");
         service.createRoom(room);
@@ -343,7 +344,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void deleteNonExistentRoomIsNoOp() {
+    void deleteNonExistentRoomIsNoOp() throws RoomServiceException {
         service.deleteRoom("non-existent-id"); // must not throw
         assertTrue(service.getRooms().isEmpty());
     }
@@ -351,7 +352,7 @@ class RoomServiceImplTest {
     // ── updateRoom ───────────────────────────────────────────────────────────
 
     @Test
-    void updateRoomReplacesExisting() {
+    void updateRoomReplacesExisting() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.publishRoom(room.getId());
@@ -366,7 +367,7 @@ class RoomServiceImplTest {
     // ── addPlayerIdToRoom ────────────────────────────────────────────────────
 
     @Test
-    void addPlayerIdToRoomAppendsId() {
+    void addPlayerIdToRoomAppendsId() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -375,7 +376,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomSetsStatusToFullWhenAtCapacity() {
+    void addPlayerIdToRoomSetsStatusToFullWhenAtCapacity() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setMaxPlayers(2);
         service.createRoom(room);
@@ -390,7 +391,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomStatusRemainsWaitingBelowCapacity() {
+    void addPlayerIdToRoomStatusRemainsWaitingBelowCapacity() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setMaxPlayers(4);
         service.createRoom(room);
@@ -403,7 +404,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomIgnoresPlayerAlreadyInAnotherRoom() {
+    void addPlayerIdToRoomIgnoresPlayerAlreadyInAnotherRoom() throws RoomServiceException {
         Room roomA = buildRoom("Alpha");
         Room roomB = buildRoom("Beta");
         service.createRoom(roomA);
@@ -417,7 +418,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomAllowsRejoiningSameRoom() {
+    void addPlayerIdToRoomAllowsRejoiningSameRoom() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -427,7 +428,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomIgnoresDuplicates() {
+    void addPlayerIdToRoomIgnoresDuplicates() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -439,7 +440,7 @@ class RoomServiceImplTest {
     // ── removePlayerFromRoom ─────────────────────────────────────────────────
 
     @Test
-    void removePlayerFromRoomRemovesPlayer() {
+    void removePlayerFromRoomRemovesPlayer() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -453,7 +454,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void removeCreatorTransfersOwnershipToNextPlayer() {
+    void removeCreatorTransfersOwnershipToNextPlayer() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setCreatedByUserId("player-1");
         service.createRoom(room);
@@ -466,7 +467,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void removePlayerFromFullRoomRevertsStatusToWaiting() {
+    void removePlayerFromFullRoomRevertsStatusToWaiting() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setMaxPlayers(2);
         service.createRoom(room);
@@ -480,7 +481,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void removePlayerFromWaitingRoomKeepsStatusWaiting() {
+    void removePlayerFromWaitingRoomKeepsStatusWaiting() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setMaxPlayers(4);
         service.createRoom(room);
@@ -494,7 +495,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void removePlayerFromPlayingRoomKeepsStatusPlaying() {
+    void removePlayerFromPlayingRoomKeepsStatusPlaying() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setMaxPlayers(2);
         service.createRoom(room);
@@ -508,7 +509,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void playerCanJoinNewRoomAfterLeavingPreviousOne() {
+    void playerCanJoinNewRoomAfterLeavingPreviousOne() throws RoomServiceException {
         Room roomA = buildRoom("Alpha");
         Room roomB = buildRoom("Beta");
         service.createRoom(roomA);
@@ -523,7 +524,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void removeLastPlayerLeavesNoCreator() {
+    void removeLastPlayerLeavesNoCreator() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         room.setCreatedByUserId("player-1");
         service.createRoom(room);
@@ -538,7 +539,7 @@ class RoomServiceImplTest {
     // ── setUsernameAndProfile ────────────────────────────────────────────────
 
     @Test
-    void setUsernameAndProfileStoresBoth() {
+    void setUsernameAndProfileStoresBoth() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -550,7 +551,7 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void setUsernameAndProfileOverwritesPrevious() {
+    void setUsernameAndProfileOverwritesPrevious() throws RoomServiceException {
         Room room = buildRoom("Alpha");
         service.createRoom(room);
         service.addPlayerIdToRoom("player-1", room.getId());
@@ -564,7 +565,7 @@ class RoomServiceImplTest {
     // ── getAvailableGames ────────────────────────────────────────────────────
 
     @Test
-    void getAvailableGamesReturnsOnlyReachableGames() {
+    void getAvailableGamesReturnsOnlyReachableGames() throws RoomServiceException {
         // No games configured in mock → should return empty list (not throw)
         when(gamesConfig.getAvailable()).thenReturn(new ArrayList<>());
         assertTrue(service.getAvailableGames().isEmpty());

@@ -53,8 +53,9 @@ debug: false
 
 logging:
   level:
-    web: info
     root: info
+    web: info
+    ADG: debug
 
   pattern:
     file: '%d{yyyy-MMM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{15} - %msg%n'
