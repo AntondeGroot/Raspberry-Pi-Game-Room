@@ -5,6 +5,7 @@ import ADG.Lobby.GameOption;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import ADG.Lobby.RoomService;
+import ADG.Lobby.RoomServiceException;
 import ADG.config.GamesConfig;
 import com.google.gwt.user.server.rpc.jakarta.RemoteServiceServlet;
 import jakarta.annotation.PostConstruct;
@@ -21,10 +22,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("serial")
 @WebServlet("/app/gameroom")
 public class RoomServiceImpl extends RemoteServiceServlet implements RoomService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RoomServiceImpl.class);
 
     @Autowired
     private GamesConfig gamesConfig;
@@ -89,14 +94,14 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized Room createRoom(Room room) throws IllegalArgumentException {
+    public synchronized Room createRoom(Room room) throws RoomServiceException {
         if (room.getName().isBlank() || room.getName().trim().length() < 3) {
-            throw new IllegalArgumentException("Room name must be at least 3 characters.");
+            throw new RoomServiceException("Room name must be at least 3 characters.");
         }
         boolean nameAlreadyExists = roomStore.rooms.stream()
                 .anyMatch(r -> r.getName().equalsIgnoreCase(room.getName().trim()));
         if (nameAlreadyExists) {
-            throw new IllegalArgumentException("A room with this name already exists.");
+            throw new RoomServiceException("A room with this name already exists.");
         }
         roomStore.rooms.stream()
                 .filter(r -> r.getPlayerIds().contains(room.getCreatedByUserId()))
@@ -143,12 +148,24 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized void updateRoom(Room room){
+    public synchronized void updateRoom(Room room) throws RoomServiceException {
+        if (room == null) {
+            logger.error("Attempt to update null room");
+            throw new RoomServiceException("Room cannot be null");
+        }
+        if (room.getId() == null || room.getId().isBlank()) {
+            logger.error("Attempt to update room with null or empty ID");
+            throw new RoomServiceException("Room ID cannot be null or empty");
+        }
         Optional<Room> result = roomStore.rooms.stream().filter(r -> r.getId().equals(room.getId())).findFirst();
         if(result.isPresent()) {
             Room foundRoom = result.get();
             roomStore.rooms.remove(foundRoom);
             roomStore.rooms.add(room);
+            logger.debug("Room {} updated successfully", room.getId());
+        } else {
+            logger.error("Room not found with ID: {}", room.getId());
+            throw new RoomServiceException("Room with ID " + room.getId() + " not found");
         }
     }
 
@@ -199,18 +216,20 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized Room startGame(String roomId) {
+    public synchronized Room startGame(String roomId) throws RoomServiceException {
+        logger.debug("Starting game for room: {}", roomId);
         for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(roomId)) {
 
                 GameDefinition game = gamesConfig.findById(room1.getGameId())
-                        .orElseThrow(() -> new IllegalArgumentException("Unknown game: " + room1.getGameId()));
+                        .orElseThrow(() -> new RoomServiceException("Unknown game: " + room1.getGameId()));
 
                 String baseUrl = game.getBaseUrl();
+                logger.debug("Game ID: {}, Base URL: {}", room1.getGameId(), baseUrl);
 
                 // 0. Enforce minimum players
                 if (room1.getPlayerNames().size() < game.getMinPlayers()) {
-                    throw new IllegalArgumentException(
+                    throw new RoomServiceException(
                             "Not enough players. Need at least " + game.getMinPlayers()
                             + ", but only " + room1.getPlayerNames().size() + " have joined.");
                 }
@@ -224,14 +243,20 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 }
                 Map sessionResponse;
                 try {
-                    sessionResponse = restTemplate.postForObject(baseUrl + "/games", newGameRequest, Map.class);
+                    String createSessionUrl = baseUrl + "/games";
+                    logger.debug("Creating session at: {}", createSessionUrl);
+                    sessionResponse = restTemplate.postForObject(createSessionUrl, newGameRequest, Map.class);
+                    logger.debug("Session created successfully");
                 } catch (RestClientException e) {
-                    throw new IllegalArgumentException("Could not reach game server at " + baseUrl + ": " + e.getMessage());
+                    logger.error("Failed to create session: {}", e.getMessage(), e);
+                    throw new RoomServiceException("Could not reach game server at " + baseUrl + ": " + e.getMessage());
                 }
                 String sessionId = sessionResponse.get("sessionId").toString();
+                logger.debug("Session ID: {}", sessionId);
 
                 // 2. Add each player & 3. Start the game — clean up the session on any failure
                 try {
+                    logger.debug("Adding {} players to session", room1.getPlayerNames().size());
                     for (Map.Entry<String, String> entry : room1.getPlayerNames().entrySet()) {
                         String playerId = entry.getKey();
                         String playerName = entry.getValue();
@@ -244,17 +269,23 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                         playerRequest.put("id", playerId);
                         playerRequest.put("name", playerName);
                         playerRequest.put("profilePic", profilePic);
-                        restTemplate.postForObject(baseUrl + "/games/" + sessionId + "/players", playerRequest, Map.class);
+                        String playerUrl = baseUrl + "/games/" + sessionId + "/players";
+                        logger.debug("Adding player {} at: {}", playerName, playerUrl);
+                        restTemplate.postForObject(playerUrl, playerRequest, Map.class);
                     }
 
                     // 3. Start the game
-                    restTemplate.postForObject(baseUrl + "/games/" + sessionId, null, Void.class);
+                    String startGameUrl = baseUrl + "/games/" + sessionId;
+                    logger.debug("Starting game at: {}", startGameUrl);
+                    restTemplate.postForObject(startGameUrl, null, Void.class);
+                    logger.info("Game started successfully for room: {}", roomId);
                 } catch (RestClientException e) {
+                    logger.error("Error during game start: {}", e.getMessage(), e);
                     // Attempt to clean up the orphaned session on the game server
                     try {
                         restTemplate.delete(baseUrl + "/games/" + sessionId);
                     } catch (RestClientException ignored) {}
-                    throw new IllegalArgumentException(extractErrorMessage(e));
+                    throw new RoomServiceException(extractErrorMessage(e));
                 }
 
                 // 4. Store session info and mark room as playing
@@ -268,7 +299,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized ArrayList<GameOption> getGameOptions(String gameId) {
+    public synchronized ArrayList<GameOption> getGameOptions(String gameId) throws RoomServiceException {
         GameDefinition game = gamesConfig.findById(gameId).orElse(null);
         if (game == null) return new ArrayList<>();
         try {

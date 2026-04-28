@@ -4,6 +4,7 @@ import ADG.Presenter;
 import ADG.PresenterManager;
 import ADG.audio.AudioPlayer;
 import ADG.i18n.I18n;
+import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.shared.HandlerRegistration;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -68,11 +69,20 @@ public class GameOptionsPresenter implements Presenter {
             room.setGameOptions(gameOpts);
         }
         // Persist the options to the server before proceeding, so joining players see them
+        GWT.log("Updating room with ID: " + room.getId());
         roomService.updateRoom(room, new AsyncCallback<Void>() {
             @Override public void onFailure(Throwable t) {
-                Window.alert(I18n.m().errFailedToSaveOptions(t.getMessage()));
+                String errorMsg = "Unknown error";
+                if (t instanceof ADG.Lobby.RoomServiceException) {
+                    errorMsg = t.getMessage();
+                } else if (t.getMessage() != null) {
+                    errorMsg = t.getMessage();
+                }
+                GWT.log("Failed to update room: " + errorMsg);
+                Window.alert("Failed to save game options: " + errorMsg);
             }
             @Override public void onSuccess(Void v) {
+                GWT.log("Room updated successfully, switching to character selection");
                 presenterManager.switchToCharacterSelection(room);
             }
         });

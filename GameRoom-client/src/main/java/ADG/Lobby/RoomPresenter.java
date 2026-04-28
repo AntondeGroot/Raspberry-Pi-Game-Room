@@ -75,14 +75,23 @@ public class RoomPresenter implements Presenter {
     }
 
     private void startGame() {
+        GWT.log("Starting game for room: " + room.getId());
         roomService.startGame(room.getId(), new AsyncCallback<Room>() {
             @Override
             public void onFailure(Throwable throwable) {
-                AudioPlayer.errorAlert(throwable.getMessage());
+                String errorMsg = "Unknown error";
+                if (throwable instanceof ADG.Lobby.RoomServiceException) {
+                    errorMsg = throwable.getMessage();
+                } else if (throwable.getMessage() != null) {
+                    errorMsg = throwable.getMessage();
+                }
+                GWT.log("Failed to start game: " + errorMsg);
+                AudioPlayer.errorAlert(errorMsg);
             }
 
             @Override
             public void onSuccess(Room room) {
+                GWT.log("Game started successfully");
                 roomView.updateCreatorControls(room);
             }
         });
@@ -211,6 +220,8 @@ public class RoomPresenter implements Presenter {
                             + "/?sessionid=" + updatedRoom.getGameSessionId()
                             + "&playerid=" + Cookie.getPlayerId()
                             + "&locale=" + Cookie.getLanguage().name();
+                    GWT.log("Navigating to game URL: " + url);
+                    GWT.log("Game base URL: " + updatedRoom.getGameBaseUrl() + ", Session ID: " + updatedRoom.getGameSessionId());
                     Window.Location.replace(url);
                     return;
                 }

@@ -10,14 +10,14 @@ import java.util.ArrayList;
 public interface RoomService extends RemoteService {
     ArrayList<Room> getRooms();
     Room getRoomById(String roomId);
-    Room createRoom(Room room) throws IllegalArgumentException;
+    Room createRoom(Room room) throws RoomServiceException;
     void deleteRoom(String roomId);
-    void updateRoom(Room room);
+    void updateRoom(Room room) throws RoomServiceException;
     void addPlayerIdToRoom(String playerId, String roomId);
     void removePlayerFromRoom(String playerId, String roomId);
     void setUsernameAndProfile(Room room, String userId, String username, String profileId);
     void publishRoom(String roomId);
-    Room startGame(String roomId) throws IllegalArgumentException;
+    Room startGame(String roomId) throws RoomServiceException;
     ArrayList<GameDefinition> getAvailableGames();
-    ArrayList<GameOption> getGameOptions(String gameId) throws IllegalArgumentException;
+    ArrayList<GameOption> getGameOptions(String gameId) throws RoomServiceException;
 }
