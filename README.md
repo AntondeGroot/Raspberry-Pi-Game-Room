@@ -1,22 +1,24 @@
 # Raspberry Pi Game Room
 
 This project was written in GWT in order to get a better understanding of it, since this is used by my employer.
-
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/7035146e-9a82-42ae-85d1-6f7a33bca0a2" />
-
+<p align="center">
+   <img width="500" alt="image" src="https://github.com/user-attachments/assets/7035146e-9a82-42ae-85d1-6f7a33bca0a2" />
+</p>
 # Games
 
 ## Tock / Keezenspel
 https://github.com/AntondeGroot/GWT_Keezenspel
 
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/70e1ac8a-416e-4b8a-9593-5207419b20b4" />
-
+<p align="center">
+   <img width="500" alt="image" src="https://github.com/user-attachments/assets/70e1ac8a-416e-4b8a-9593-5207419b20b4" />
+</p>
 
 ## Qwixx
 https://github.com/AntondeGroot/Qwixx
 
-<img width="500" alt="image" src="https://github.com/user-attachments/assets/c0e45ab8-958e-4570-a303-cb2ba45c19c4" />
-
+<p align="center">
+   <img width="500" alt="image" src="https://github.com/user-attachments/assets/c0e45ab8-958e-4570-a303-cb2ba45c19c4" />
+</p>
 
 ## Local development
 
