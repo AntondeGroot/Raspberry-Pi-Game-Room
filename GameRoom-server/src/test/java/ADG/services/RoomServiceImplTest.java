@@ -10,13 +10,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
@@ -29,6 +32,9 @@ class RoomServiceImplTest {
 
     @Mock
     private GamesConfig gamesConfig;
+
+    @Mock
+    private RestTemplate restTemplate;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -45,6 +51,10 @@ class RoomServiceImplTest {
         Field roomStoreField = RoomServiceImpl.class.getDeclaredField("roomStore");
         roomStoreField.setAccessible(true);
         roomStoreField.set(service, roomStore);
+
+        Field restTemplateField = RoomServiceImpl.class.getDeclaredField("restTemplate");
+        restTemplateField.setAccessible(true);
+        restTemplateField.set(service, restTemplate);
 
         lenient().when(gamesConfig.findById(anyString())).thenReturn(Optional.empty());
         // Default: caller is the room creator used by buildRoom().
@@ -569,5 +579,122 @@ class RoomServiceImplTest {
         // No games configured in mock → should return empty list (not throw)
         when(gamesConfig.getAvailable()).thenReturn(new ArrayList<>());
         assertTrue(service.getAvailableGames().isEmpty());
+    }
+
+    // ── verifyGameSessionsExist ──────────────────────────────────────────────
+
+    private Room buildPlayingRoom(String name, String sessionId) {
+        Room r = buildRoom(name);
+        r.setStatus(GameStatus.PLAYING);
+        r.setGameSessionId(sessionId);
+        roomStore.rooms.add(r);
+        return r;
+    }
+
+    private GameDefinition gameDefWithBaseUrl(String baseUrl) {
+        GameDefinition def = new GameDefinition();
+        def.setId("keezen");
+        def.setBaseUrl(baseUrl);
+        return def;
+    }
+
+    @Test
+    void verifyGameSessionsExistDeletesRoomWhenSessionGone() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.getForObject("http://game-server/games/session-1", Map.class))
+                .thenThrow(new ResourceAccessException("connection refused"));
+
+        service.verifyGameSessionsExist();
+
+        assertNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void verifyGameSessionsExistKeepsRoomWhenVersionChanges() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.getForObject("http://game-server/games/session-1", Map.class))
+                .thenReturn(Map.of());
+        when(restTemplate.getForObject("http://game-server/gamestates/session-1", Map.class))
+                .thenReturn(Map.of("version", 1))
+                .thenReturn(Map.of("version", 2));
+
+        service.verifyGameSessionsExist(); // stores version "1"
+        roomStore.gameStateVersionTimestamps.put(room.getId(), System.currentTimeMillis() - (2 * 60 * 60 * 1000L));
+        service.verifyGameSessionsExist(); // version changed to "2" → timer resets, no deletion
+
+        assertNotNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void verifyGameSessionsExistDeletesRoomWhenVersionStaleForOneHour() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.getForObject("http://game-server/games/session-1", Map.class))
+                .thenReturn(Map.of());
+        when(restTemplate.getForObject("http://game-server/gamestates/session-1", Map.class))
+                .thenReturn(Map.of("version", 42));
+
+        service.verifyGameSessionsExist(); // stores version "42" with current timestamp
+        // Backdate the timestamp to simulate 1+ hour of no change
+        roomStore.gameStateVersionTimestamps.put(room.getId(), System.currentTimeMillis() - (61 * 60 * 1000L));
+        service.verifyGameSessionsExist(); // same version, stale → should delete
+
+        verify(restTemplate).delete("http://game-server/games/session-1");
+        assertNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void verifyGameSessionsExistKeepsRoomWhenVersionUnchangedLessThanOneHour() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.getForObject("http://game-server/games/session-1", Map.class))
+                .thenReturn(Map.of());
+        when(restTemplate.getForObject("http://game-server/gamestates/session-1", Map.class))
+                .thenReturn(Map.of("version", 42));
+
+        service.verifyGameSessionsExist(); // stores version "42"
+        service.verifyGameSessionsExist(); // same version, but < 1 hour → keep
+
+        verify(restTemplate, never()).delete(anyString());
+        assertNotNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void verifyGameSessionsExistSkipsTestRoom() {
+        buildPlayingRoom("Test Room", "session-test");
+
+        service.verifyGameSessionsExist();
+
+        verify(restTemplate, never()).getForObject(anyString(), any());
+    }
+
+    @Test
+    void verifyGameSessionsExistSkipsRoomWithNoGameDefinition() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.empty());
+
+        service.verifyGameSessionsExist();
+
+        verify(restTemplate, never()).getForObject(anyString(), any());
+        assertNotNull(service.getRoomById(room.getId()));
+    }
+
+    @Test
+    void verifyGameSessionsExistSkipsVersionCheckWhenVersionMissing() {
+        Room room = buildPlayingRoom("Alpha", "session-1");
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.getForObject("http://game-server/games/session-1", Map.class))
+                .thenReturn(Map.of());
+        when(restTemplate.getForObject("http://game-server/gamestates/session-1", Map.class))
+                .thenReturn(Map.of()); // no version field
+
+        service.verifyGameSessionsExist();
+        roomStore.gameStateVersionTimestamps.put(room.getId(), System.currentTimeMillis() - (2 * 60 * 60 * 1000L));
+        service.verifyGameSessionsExist();
+
+        verify(restTemplate, never()).delete(anyString());
+        assertNotNull(service.getRoomById(room.getId()));
     }
 }

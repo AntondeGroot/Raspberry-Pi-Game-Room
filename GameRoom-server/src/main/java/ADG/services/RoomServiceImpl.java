@@ -38,8 +38,9 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     private RoomStore roomStore;
 
     private static final long EMPTY_ROOM_TTL_MS = 15 * 60 * 1000L;
+    private static final long INACTIVE_GAME_TTL_MS = 60 * 60 * 1000L;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    RestTemplate restTemplate = new RestTemplate();
 
     @PostConstruct
     private void seedTestRoom() {
@@ -353,14 +354,59 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 continue;
             }
 
+            Optional<GameDefinition> gameDef = gamesConfig.findById(room.getGameId());
+            if (gameDef.isEmpty()) {
+                logger.warn("No game definition found for room {}, skipping health check", room.getId());
+                continue;
+            }
+            String baseUrl = gameDef.get().getBaseUrl();
+            String sessionId = room.getGameSessionId();
+
             try {
-                String gameUrl = room.getGameBaseUrl() + "/games/" + room.getGameSessionId();
+                String gameUrl = baseUrl + "/games/" + sessionId;
                 logger.debug("Verifying game session exists at: {}", gameUrl);
                 restTemplate.getForObject(gameUrl, Map.class);
                 logger.debug("Game session verified: {}", room.getId());
             } catch (RestClientException e) {
                 logger.warn("Game session no longer exists for room {}: {}", room.getId(), e.getMessage());
-                roomStore.rooms.remove(room);
+                roomStore.deleteRoom(room.getId());
+                continue;
+            }
+
+            Map<?, ?> gameStateData;
+            try {
+                gameStateData = restTemplate.getForObject(baseUrl + "/gamestates/" + sessionId, Map.class);
+            } catch (RestClientException e) {
+                logger.warn("Could not fetch game state for room {}: {}", room.getId(), e.getMessage());
+                continue;
+            }
+
+            if (gameStateData == null) {
+                continue;
+            }
+
+            Object versionObj = gameStateData.get("version");
+            if (versionObj == null) {
+                continue;
+            }
+            String currentVersion = versionObj.toString();
+            String storedVersion = roomStore.gameStateVersions.get(room.getId());
+            long now = System.currentTimeMillis();
+
+            if (!currentVersion.equals(storedVersion)) {
+                roomStore.gameStateVersions.put(room.getId(), currentVersion);
+                roomStore.gameStateVersionTimestamps.put(room.getId(), now);
+            } else {
+                Long firstSeenAt = roomStore.gameStateVersionTimestamps.get(room.getId());
+                if (firstSeenAt != null && now - firstSeenAt >= INACTIVE_GAME_TTL_MS) {
+                    logger.info("Game state unchanged for 1 hour in room {}, removing stale game", room.getId());
+                    try {
+                        restTemplate.delete(baseUrl + "/games/" + sessionId);
+                    } catch (RestClientException e) {
+                        logger.warn("Failed to delete stale game session {}: {}", sessionId, e.getMessage());
+                    }
+                    roomStore.deleteRoom(room.getId());
+                }
             }
         }
     }

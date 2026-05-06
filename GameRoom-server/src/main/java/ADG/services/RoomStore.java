@@ -15,9 +15,13 @@ public class RoomStore {
 
     final CopyOnWriteArrayList<Room> rooms = new CopyOnWriteArrayList<>();
     final ConcurrentHashMap<String, Long> emptyRoomTimestamps = new ConcurrentHashMap<>();
+    final ConcurrentHashMap<String, String> gameStateVersions = new ConcurrentHashMap<>();
+    final ConcurrentHashMap<String, Long> gameStateVersionTimestamps = new ConcurrentHashMap<>();
 
     public void deleteRoom(String roomId) {
         rooms.removeIf(r -> roomId.equals(r.getId()));
         emptyRoomTimestamps.remove(roomId);
+        gameStateVersions.remove(roomId);
+        gameStateVersionTimestamps.remove(roomId);
     }
 }
