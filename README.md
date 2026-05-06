@@ -81,6 +81,226 @@ server:
 ```
 
 ---
+# Creating a new game that integrates with the Game Room
+<details>
+<summary>Creating a new game that integrates with the Game Room</summary>
+
+This section documents the contract a game server must fulfil to work with the GameRoom lobby. The GameRoom calls your game server over HTTP; your game does not call the GameRoom directly (except to fetch profile pictures).
+
+## Port & registration
+
+Pick a port that does not clash with existing games and add an entry to `GameRoom-server/src/main/resources/games.yaml` (or `/opt/gameroom/games.yaml` on the Pi):
+
+```yaml
+games:
+  available:
+    - id: mygame
+      name: My Game
+      baseUrl: http://localhost:4400        # used for server-to-server API calls
+      healthUrl: http://localhost:80/mygame/ # used to check if the game is reachable
+      minPlayers: 2
+      maxPlayers: 4
+```
+
+The GameRoom uses `baseUrl` as the root for all API calls to your server. `healthUrl` is polled with a HEAD request to decide whether to show the game in the lobby — typically the nginx path on the Pi. On the Pi, `baseUrl` should use the game's local port (nginx / Cloudflare handles external exposure).
+
+---
+
+## Required REST endpoints
+
+The GameRoom calls the following endpoints on your game server. All request and response bodies are JSON.
+
+### 1. `POST /games` — create a session
+
+Called when the room host starts the game.
+
+**Request body:**
+```json
+{
+  "roomName": "Living Room",
+  "maxPlayers": 4,
+  "gameOptions": {
+    "difficulty": "hard"
+  }
+}
+```
+
+`maxPlayers` is the number of players who actually joined the room (not the configured room maximum). `gameOptions` contains whatever key/value pairs the room host configured in the lobby. Values are typed: `"true"`/`"false"` become booleans, numeric strings become integers, everything else stays a string. It is omitted when no options were set.
+
+**Response body (200):**
+```json
+{
+  "sessionId": "some-unique-id"
+}
+```
+
+Return a stable ID that identifies this game session for all subsequent calls.
+
+---
+
+### 2. `POST /games/{sessionId}/players` — add a player
+
+Called once per player, in sequence, after the session is created.
+
+**Request body:**
+```json
+{
+  "id": "player-uuid",
+  "name": "Alice",
+  "profilePic": 3
+}
+```
+
+`profilePic` is a zero-based global sprite index (see [Profile pictures](#profile-pictures) below). Return any `2xx` status to confirm.
+
+---
+
+### 3. `POST /games/{sessionId}` — start the game
+
+Called after all players have been added. No request body. Return any `2xx` to confirm.
+
+After a successful response the GameRoom redirects each player's browser to:
+
+```
+/<gameId>/?sessionid={sessionId}&playerid={playerId}&locale={en|nl|...}
+```
+
+`<gameId>` is the `id` field from `games.yaml` (e.g. `/keezen/`). The redirect is a relative path served through nginx — `baseUrl` is used for server-to-server calls only, not for the browser redirect. Use these query parameters to identify who is playing and in which session.
+
+**Error handling:** if steps 2 or 3 fail, the GameRoom immediately sends `DELETE /games/{sessionId}` to clean up. Your server should handle this even for partially-created sessions.
+
+---
+
+### 4. `GET /games/{sessionId}` — session health check
+
+Called every **30 seconds** by the GameRoom to verify the session is still alive.
+
+- Return `2xx` → session is healthy.
+- Return any error / connection failure → the GameRoom assumes the session is gone and removes the room from the lobby.
+
+---
+
+### 5. `GET /gamestates/{sessionId}` — game state (for stale detection)
+
+Also polled every **30 seconds**. The GameRoom uses this to detect abandoned games.
+
+**Response body must include a `version` field** that changes whenever the game state changes (e.g. a move counter, a hash, a timestamp):
+
+```json
+{
+  "version": "42",
+  ...
+}
+```
+
+If `version` stays the same for **60 minutes**, the GameRoom concludes the game is stuck and calls `DELETE /games/{sessionId}` automatically.
+
+---
+
+### 6. `DELETE /games/{sessionId}` — delete a session
+
+Called when the game is stale (60-minute inactivity timeout) or when session creation fails partway through. Free all server-side resources for this session. Return any `2xx` (or even a `404` if it was already gone — the GameRoom ignores the response body).
+
+---
+
+## Optional REST endpoints
+
+### `GET /game-options` — lobby configuration options
+
+Called by the GameRoom when the room host opens the game-options screen. If this endpoint is not implemented (or returns an error), the GameRoom silently skips the options screen and starts the game with no options.
+
+**Response body:** a JSON array of option objects.
+
+```json
+[
+  {
+    "key": "hardMode",
+    "labelKey": "gameOption.hardMode",
+    "descriptionKey": "gameOption.hardMode.desc",
+    "type": "BOOLEAN",
+    "defaultValue": "false"
+  },
+  {
+    "key": "color",
+    "labelKey": "gameOption.color",
+    "choices": ["red", "blue", "green"],
+    "defaultValue": "red"
+  },
+  {
+    "key": "rounds",
+    "labelKey": "gameOption.rounds",
+    "defaultValue": "5"
+  }
+]
+```
+
+The widget rendered in the lobby is determined by the fields present:
+
+| Fields | Widget |
+|--------|--------|
+| `type: "BOOLEAN"` | Checkbox |
+| `choices` array present | Dropdown |
+| neither | Text input |
+
+`labelKey` and `descriptionKey` are translation keys resolved from the game's own `GET /i18n/{lang}.json` file. The selected values are sent back as the `gameOptions` map in `POST /games`.
+
+---
+
+## Profile pictures
+
+Players choose a profile picture in the lobby. The selected index is passed to your game as `profilePic` (an integer) in the `POST /games/{sessionId}/players` call.
+
+To render the picture, fetch it directly from the GameRoom:
+
+```
+GET http://<gameroom-base-url>/profile-pic/{index}
+```
+
+Returns a **100 × 100 PNG**. The image is publicly cacheable for 24 hours (`Cache-Control: public, max-age=86400`), so you can cache it client-side.
+
+---
+
+## Chat window
+
+The GameRoom lobby provides a built-in chat for players waiting in the room. **Games themselves do not need to implement chat** — the lobby handles it before the game starts.
+
+If you want to embed a similar chat inside your game, the GameRoom chat REST API works as follows:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/chat/{roomId}` | Send a message |
+| `GET`  | `/chat/{roomId}` | Fetch all messages |
+
+**Send message body:**
+```json
+{ "sender": "Alice", "message": "<encrypted text>" }
+```
+
+Messages are encrypted with the room ID as the cipher key (see `ChatCipher`). The client polls `GET /chat/{roomId}` every 500 ms.
+
+---
+
+## Summary checklist
+
+| Requirement | Detail |
+|-------------|--------|
+| `POST /games` | Returns `{ "sessionId": "..." }` |
+| `POST /games/{id}/players` | Accepts `id`, `name`, `profilePic` |
+| `POST /games/{id}` | Starts game, no body needed |
+| `GET /games/{id}` | Returns `2xx` while session is alive |
+| `GET /gamestates/{id}` | Returns JSON with a `version` field |
+| `DELETE /games/{id}` | Cleans up session resources |
+| `GET /game-options` | Optional — returns array of option objects for the lobby |
+| Redirect params | Read `?sessionid=`, `?playerid=`, `?locale=` on load |
+| Profile pictures | Fetch from `GET <gameroom>/profile-pic/{index}` |
+| Port registration | Add `baseUrl` to `games.yaml` |
+
+</details>
+
+---
+
+
+# Preparing your Raspberry Pi from scratch
 
 <details>
 <summary>Preparing your Raspberry Pi from scratch</summary>
