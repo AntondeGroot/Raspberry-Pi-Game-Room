@@ -55,23 +55,12 @@ public class GameOptionsPresenter implements Presenter {
     private void showOptionsAfterLoadingTranslations(ArrayList<GameOption> options) {
         String baseUrl = room.getGameBaseUrl();
 
-        // If baseUrl is a localhost address (development), replace with current domain (deployment)
-        if (baseUrl != null && baseUrl.contains("localhost")) {
-            baseUrl = null;
-        }
-
-        if (baseUrl == null || baseUrl.isEmpty()) {
-            // Fallback: try to construct from window location
-            String origin = com.google.gwt.core.client.GWT.getModuleBaseURL();
-            if (origin.contains("/qwixx/")) {
-                baseUrl = origin.substring(0, origin.lastIndexOf("/qwixx/")) + "/qwixx";
-            } else {
-                // Secondary fallback: use /qwixx on the same domain (for different gameroom deployments)
-                String protocol = Window.Location.getProtocol();
-                String host = Window.Location.getHost();
-                baseUrl = protocol + "//" + host + "/qwixx";
-                GWT.log("Using secondary fallback baseUrl: " + baseUrl);
-            }
+        // If baseUrl is an internal/localhost address, construct the public URL from the game ID
+        if (baseUrl == null || baseUrl.isEmpty() || baseUrl.contains("localhost")) {
+            String protocol = Window.Location.getProtocol();
+            String host = Window.Location.getHost();
+            baseUrl = protocol + "//" + host + "/" + room.getGameId();
+            GWT.log("Using public baseUrl for translations: " + baseUrl);
         }
         GameTranslations.load(baseUrl, Cookie.getLanguage(), () ->
             view.showGameSpecificOptions(options)
