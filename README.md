@@ -84,6 +84,7 @@ server:
 # Creating a new game that integrates with the Game Room
 <details>
 <summary>Creating a new game that integrates with the Game Room</summary>
+
 ---
    
 This section documents the contract a game server must fulfil to work with the GameRoom lobby. The GameRoom calls your game server over HTTP; your game does not call the GameRoom directly (except to fetch profile pictures).
