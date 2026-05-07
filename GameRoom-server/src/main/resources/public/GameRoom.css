@@ -225,6 +225,7 @@ td, th, span, p, div, label {
   box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12), 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
   width: 480px;
   box-sizing: border-box;
+  text-align: left;
 }
 
 .game-options-field {
@@ -239,7 +240,7 @@ td, th, span, p, div, label {
   align-items: center;
   gap: 10px;
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   cursor: pointer;
   user-select: none;
   padding: 8px 0;
@@ -253,17 +254,57 @@ td, th, span, p, div, label {
 }
 
 .game-options-field-inline {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 8px 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+}
+
+.game-options-field-inline:last-child {
+  border-bottom: none;
+}
+
+/* Checkbox spans both columns so description falls below it */
+.game-options-field-inline:has(.game-options-checkbox) > .game-options-checkbox {
+  grid-column: 1 / -1;
 }
 
 .game-options-label {
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   font-weight: 600;
+}
+
+.game-options-select {
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: dark;
+  background-color: rgba(0, 0, 0, 0.35);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239485c0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: 'Nunito', inherit;
+  font-size: var(--font-size-md);
+  padding: 6px 32px 6px 10px;
+  min-width: 140px;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.game-options-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-glow);
+}
+
+.game-options-select option {
+  background: #1a0f2e;
+  color: var(--color-text-primary);
 }
 
 .game-options-number-row {
@@ -279,13 +320,14 @@ td, th, span, p, div, label {
   border: 1px solid rgba(139, 92, 246, 0.5);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   text-align: center;
 }
 
 .game-options-number-input:focus {
   outline: none;
-  border-color: #f97316;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .game-options-range-hint {
@@ -294,11 +336,16 @@ td, th, span, p, div, label {
 }
 
 .game-options-description {
+  grid-column: 1 / -1;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  margin-left: 16px;
-  flex: 1;
-  text-align: left;
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  margin-left: 0;
+}
+
+/* Indent checkbox descriptions to align with the label text */
+.game-options-field-inline:has(.game-options-checkbox) .game-options-description {
+  margin-left: 26px;
 }
 
 .game-options-actions {
