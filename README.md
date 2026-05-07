@@ -31,7 +31,12 @@ This project was written in GWT in order to get a better understanding of it, si
 2. Start the GWT code server: `mvn gwt:codeserver -pl *-client -am`
 3. Open http://localhost:4100/
 
-## Deploying to Raspberry Pi
+---
+# Deploying to Raspberry Pi
+<details>
+<summary>Deploying to Raspberry Pi</summary>
+
+---
 
 Run `./deploy.sh` to build, upload, and restart the service.
 
@@ -79,6 +84,7 @@ server:
   servlet:
     context-path: /keezen
 ```
+</details>
 
 ---
 # Creating a new game that integrates with the Game Room
