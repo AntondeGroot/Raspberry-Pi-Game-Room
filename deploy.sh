@@ -1,6 +1,27 @@
 #!/bin/bash
 set -e
 
+stamp_css_version_for_cloudflare_cache_invalidation() {
+  local v=$(date +%s)
+  html_files=(
+    GameRoom-server/src/main/resources/public/index.html
+    GameRoom-server/src/main/resources/public/login.html
+  )
+
+  restore_html() {
+    for f in "${html_files[@]}"; do
+      [ -f "$f.bak" ] && mv "$f.bak" "$f"
+    done
+  }
+  trap restore_html EXIT
+
+  for f in "${html_files[@]}"; do
+    sed -i.bak "s/\.css\"/.css?v=$v\"/g" "$f"
+  done
+}
+
+stamp_css_version_for_cloudflare_cache_invalidation
+
 echo "🔨 Building..."
 mvn clean package
 
