@@ -889,42 +889,49 @@ td, th, span, p, div, label {
    ============================================= */
 #lang-selector-root {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 30px;
+  right: 25px;
   z-index: 1000;
 }
 
 .lang-selector-container {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 8px;
 }
 
 .lang-selector-icon {
-  font-size: 22px;
-  line-height: 1;
+  display: none;
 }
 
 .lang-listbox {
-  background: var(--color-bg-input);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url('globe-language.svg');
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: 9px center;
+  background-size: 18px 18px;
+  color: var(--color-accent);
+  border: 3px solid rgba(251, 146, 60, 0.7);
+  border-radius: var(--radius-md);
+  padding: 6px 12px 6px 34px;
   font-family: 'Nunito', sans-serif;
   font-size: var(--font-size-md);
+  font-weight: 600;
   cursor: pointer;
   outline: none;
-  transition: border-color var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.12), 0 2px 8px rgba(0,0,0,0.4);
 }
 
 .lang-listbox:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.2), 0 2px 12px rgba(251, 146, 60, 0.3);
 }
 
 .lang-listbox option {
   background: #1a0e2e;
+  color: var(--color-text-primary);
 }
 
 .adminDeleteButton {
