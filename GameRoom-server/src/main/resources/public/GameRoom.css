@@ -48,6 +48,11 @@
 /* =============================================
    Base & Reset
    ============================================= */
+*, *::before, *::after {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 body {
   font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
   font-size: var(--font-size-base);
