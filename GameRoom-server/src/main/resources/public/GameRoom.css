@@ -475,6 +475,28 @@ td, th, span, p, div, label {
   box-shadow: none;
 }
 
+.randomNameButton {
+  background: transparent;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-family: 'Nunito', inherit;
+  font-size: var(--font-size-base);
+  padding: 7px 10px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.randomNameButton:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent-glow);
+}
+
+.randomNameButton:active {
+  transform: translateY(1px);
+}
+
 .createRoomButton {
   border-radius: var(--radius-md);
   font-family: 'Nunito', inherit;

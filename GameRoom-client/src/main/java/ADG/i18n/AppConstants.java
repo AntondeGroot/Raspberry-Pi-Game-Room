@@ -10,6 +10,7 @@ public interface AppConstants extends Constants {
     String roomName();
     String selectGame();
     String createRoom();
+    String randomName();
     String availableRooms();
 
     // Table headers

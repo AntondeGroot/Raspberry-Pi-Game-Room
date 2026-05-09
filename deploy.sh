@@ -27,9 +27,10 @@ mvn clean package
 
 echo "📦 Uploading..."
 scp -i ~/.ssh/pi_deploy_key GameRoom-server/target/GameRoom.jar my-pi:/home/ubuntu/gameroom.jar
+scp -i ~/.ssh/pi_deploy_key GameRoom-server/src/main/resources/room-names.txt my-pi:/home/ubuntu/room-names.txt
 
 echo "📁 Installing..."
-ssh -i ~/.ssh/pi_deploy_key my-pi "sudo mkdir -p /opt/gameroom && sudo mv /home/ubuntu/gameroom.jar /opt/gameroom/gameroom.jar"
+ssh -i ~/.ssh/pi_deploy_key my-pi "sudo mkdir -p /opt/gameroom && sudo mv /home/ubuntu/gameroom.jar /opt/gameroom/gameroom.jar && sudo cp /home/ubuntu/room-names.txt /opt/gameroom/room-names.txt && rm -f /home/ubuntu/room-names.txt"
 
 echo "⚙️ Ensuring systemd service exists..."
 ssh -i ~/.ssh/pi_deploy_key my-pi "
