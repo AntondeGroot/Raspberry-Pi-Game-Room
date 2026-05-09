@@ -177,9 +177,10 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void addPlayerIdToRoom(String playerId, String roomId) {
-        boolean alreadyInAnotherRoom = roomStore.rooms.stream()
-                .anyMatch(r -> !r.getId().equals(roomId) && r.getPlayerIds().contains(playerId));
-        if (alreadyInAnotherRoom) return;
+        roomStore.rooms.stream()
+                .filter(r -> !r.getId().equals(roomId) && r.getPlayerIds().contains(playerId))
+                .findFirst()
+                .ifPresent(r -> removePlayerFromRoom(playerId, r.getId()));
 
         for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(roomId)) {
