@@ -414,17 +414,53 @@ class RoomServiceImplTest {
     }
 
     @Test
-    void addPlayerIdToRoomIgnoresPlayerAlreadyInAnotherRoom() throws RoomServiceException {
+    void addPlayerIdToRoomMovesPlayerFromOldRoomToNewRoom() throws RoomServiceException {
         Room roomA = buildRoom("Alpha");
         Room roomB = buildRoom("Beta");
         service.createRoom(roomA);
         service.createRoom(roomB);
         service.addPlayerIdToRoom("player-1", roomA.getId());
 
-        service.addPlayerIdToRoom("player-1", roomB.getId()); // should be silently rejected
+        service.addPlayerIdToRoom("player-1", roomB.getId());
 
+        assertEquals(0, service.getRoomById(roomA.getId()).getNrOfPlayers(), "player must leave old room");
+        assertEquals(1, service.getRoomById(roomB.getId()).getNrOfPlayers(), "player must be in new room");
+    }
+
+    @Test
+    void playerStuckInOldRoomIsMovedToNewRoomOnJoin() throws RoomServiceException {
+        // Reproduces bug: browser crash left player listed in roomA; a new room (roomB) was
+        // created and a game started there. On re-login the player should see rejoin for roomB,
+        // not roomA. addPlayerIdToRoom must move them automatically.
+        Room roomA = buildRoom("Alpha");
+        Room roomB = buildRoom("Beta");
+        service.createRoom(roomA);
+        service.createRoom(roomB);
+        service.publishRoom(roomB.getId());
+        service.addPlayerIdToRoom("player-1", roomA.getId()); // stuck in old room due to crash
+
+        service.addPlayerIdToRoom("player-1", roomB.getId()); // joining the new room
+
+        assertFalse(service.getRoomById(roomA.getId()).getPlayerIds().contains("player-1"),
+                "player must no longer appear in old room");
+        assertTrue(service.getRoomById(roomB.getId()).getPlayerIds().contains("player-1"),
+                "player must appear in new room so the rejoin button shows correctly");
+    }
+
+    @Test
+    void addingPlayerToOldRoomDoesNotAffectOtherPlayersInIt() throws RoomServiceException {
+        Room roomA = buildRoom("Alpha");
+        Room roomB = buildRoom("Beta");
+        service.createRoom(roomA);
+        service.createRoom(roomB);
+        service.addPlayerIdToRoom("player-1", roomA.getId());
+        service.addPlayerIdToRoom("player-2", roomA.getId()); // other player stays in roomA
+
+        service.addPlayerIdToRoom("player-1", roomB.getId()); // player-1 moves to roomB
+
+        assertTrue(service.getRoomById(roomA.getId()).getPlayerIds().contains("player-2"),
+                "other players in the old room must be unaffected");
         assertEquals(1, service.getRoomById(roomA.getId()).getNrOfPlayers());
-        assertEquals(0, service.getRoomById(roomB.getId()).getNrOfPlayers());
     }
 
     @Test
