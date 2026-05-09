@@ -118,6 +118,13 @@ public class LobbyPresenter implements Presenter {
                     updateRooms(fetchedRooms);
                     updateRoomTable();
                 }
+                String playerId = Cookie.getPlayerId();
+                for (Room room : fetchedRooms) {
+                    if (GameStatus.PLAYING.equals(room.getStatus()) && room.getPlayerIds().contains(playerId)) {
+                        presenterManager.switchToGameRoom(room);
+                        return;
+                    }
+                }
             }
         });
     }
