@@ -68,6 +68,7 @@ public class LobbyPresenter implements Presenter {
             AudioPlayer.play(AudioPlayer.BUTTON_CLICK);
             createRoom(roomName);
         });
+        view.getRandomNameButton().addClickHandler(event -> fetchRandomRoomName());
         view.setJoinHandler(room -> {
             if (GameStatus.PLAYING.equals(room.getStatus())) {
                 presenterManager.switchToGameRoom(room);
@@ -75,6 +76,25 @@ public class LobbyPresenter implements Presenter {
                 navigateToCharacterSelection(room);
             }
         });
+    }
+
+    private void fetchRandomRoomName() {
+        RequestBuilder rb = new RequestBuilder(RequestBuilder.GET, "/random-room-name");
+        rb.setHeader("Accept", "application/json");
+        try {
+            rb.sendRequest(null, new RequestCallback() {
+                @Override
+                public void onResponseReceived(Request request, Response response) {
+                    if (response.getStatusCode() == 200) {
+                        String name = response.getText().replaceAll(".*\"name\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+                        view.getRoomNameInput().setText(name);
+                    }
+                }
+                @Override public void onError(Request request, Throwable exception) {}
+            });
+        } catch (RequestException e) {
+            GWT.log("Failed to fetch random room name: " + e.getMessage());
+        }
     }
 
     private void updateRoomTable() {

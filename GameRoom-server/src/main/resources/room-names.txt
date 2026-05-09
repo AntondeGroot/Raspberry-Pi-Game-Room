@@ -1,0 +1,101 @@
+# Room names — one per line. Edit freely here or on the Pi at /opt/gameroom/room-names.txt
+Dragon's Den
+Wizard's Tower
+The Hollow
+The Vault
+The Nexus
+Echo Chamber
+The Abyss
+The Hideout
+Mission Control
+Base Camp
+The Bunker
+Omaha Beach Resort
+The Overlook Hotel
+Thunderdome
+Crystal Cave
+
+# Star Trek
+#
+Holosuite Alpha
+Malfunctioning Holodeck
+Borg Cube
+Wolf-359
+Ten Forward
+The Q Continuum
+Transporter Room
+The Delta Quadrant
+The Promenade
+Deep Space 9
+Quark's Bar
+
+# Dr Who
+#
+The TARDIS
+Gallifrey
+
+# Rick and Morty
+#
+The Citadel
+Blips & Chitz
+Anatomy Park
+Cronenberg Earth
+Dimension C-137
+
+# Star Wars
+#
+Alderaan
+Ewok Drum Circle
+Tatooine
+Inside a Tauntaun
+
+# The Expanse
+#
+The Expanse
+Rocinante
+The Nauvoo
+The Belt
+Tycho Station
+
+# The Matrix
+#
+The Matrix
+Neo's Pod
+
+# Harry Potter
+The Chamber of Secrets
+Hagrid's Hut
+The Astronomy Tower
+Hogsmead
+The Leaky Cauldron
+Diagonalley
+Vault 687
+The Ministry of Magic
+
+# Lord of the Rings
+The Shire
+Isengard
+Mordor
+
+# spongebob
+Weenie Hut Jr's
+The Salty Spitoon
+Bikini Bottom
+The Crusty Crab
+
+# Other
+#
+Big Babylon
+Babylon 5
+Observation Deck
+The Poop Deck
+The War Room
+Moe's Tavern
+The Winchester
+The Good Place
+The Bad Place
+The Medium Place
+The Office
+The Annex
+Los Pollos Hermanos
+Valhalla

@@ -26,6 +26,7 @@ public class LobbyView extends Composite {
     @UiField Label selectGameLabel;
     @UiField TextBox roomNameInput;
     @UiField Button createRoomButton;
+    @UiField Button randomNameButton;
     @UiField Label availableRoomsHeader;
     @UiField ListBox gameListBox;
     @UiField FlowPanel roomTableContainer;
@@ -51,11 +52,13 @@ public class LobbyView extends Composite {
         roomNameLabel.setText(I18n.c().roomName());
         selectGameLabel.setText(I18n.c().selectGame());
         createRoomButton.setText(I18n.c().createRoom());
+        randomNameButton.setText("🎲 " + I18n.c().randomName());
         availableRoomsHeader.setText(I18n.c().availableRooms());
         buildTableHeader();
     }
 
     public Button getCreateRoomButton() { return createRoomButton; }
+    public Button getRandomNameButton() { return randomNameButton; }
     public TextBox getRoomNameInput() { return roomNameInput; }
 
     public void setJoinHandler(JoinHandler handler) {
