@@ -25,6 +25,11 @@ public class LobbyPresenter implements Presenter {
     private final PollingService gameOptionsPollingService = new PollingService();
     private ArrayList<GameOption> cachedGameOptions = null;
     private String pollingForGameId = null;
+    private boolean suppressAutoRedirect = false;
+
+    public void suppressNextAutoRedirect() {
+        suppressAutoRedirect = true;
+    }
 
     @Override
     public void start() {
@@ -117,6 +122,10 @@ public class LobbyPresenter implements Presenter {
                     GWT.log("update room list table");
                     updateRooms(fetchedRooms);
                     updateRoomTable();
+                }
+                if (suppressAutoRedirect) {
+                    suppressAutoRedirect = false;
+                    return;
                 }
                 String playerId = Cookie.getPlayerId();
                 for (Room room : fetchedRooms) {

@@ -35,6 +35,12 @@ public class PresenterManager {
         if (lobbyPresenter == null) {
             lobbyPresenter = new LobbyPresenter(lobbyView, this, roomServiceAsync);
         }
+        // Navigating here from another screen (game, character selection, etc.) means the
+        // player deliberately left — suppress the one-shot auto-redirect so they aren't
+        // immediately bounced back before the server has processed their removal.
+        if (currentPresenter != lobbyPresenter) {
+            lobbyPresenter.suppressNextAutoRedirect();
+        }
         switchPresenter(lobbyPresenter, lobbyView);
     }
 
