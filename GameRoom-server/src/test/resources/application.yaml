@@ -1,6 +1,8 @@
 spring:
   config:
-    import: "optional:classpath:games.yaml"
+    import:
+      - "optional:classpath:games.yaml"
+      - "classpath:sprite-sheets.yaml"
 
 admin:
   # BCrypt of "test" — used only in tests for HTTP Basic auth verification.
