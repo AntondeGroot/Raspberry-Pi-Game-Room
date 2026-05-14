@@ -19,8 +19,10 @@
     <!-- If you add any GWT meta tags, they must   -->
     <!-- be added before this line.                -->
     <!--                                           -->
-    <script src="app/app.nocache.js"></script>
+    <!-- D3 must be fully loaded before the GWT module starts so that
+         renderD3Simulation() finds window.d3 on the first room poll. -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="app/app.nocache.js"></script>
   </head>
 
   <!--                                           -->
