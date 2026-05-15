@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,6 +37,12 @@ class RoomServiceImplTest {
     @Mock
     private RestTemplate restTemplate;
 
+    @Mock
+    private RoomSseRegistry sseRegistry;
+
+    @Mock
+    private LobbySseRegistry lobbySseRegistry;
+
     @BeforeEach
     void setUp() throws Exception {
         roomStore = new RoomStore();
@@ -55,6 +62,14 @@ class RoomServiceImplTest {
         Field restTemplateField = RoomServiceImpl.class.getDeclaredField("restTemplate");
         restTemplateField.setAccessible(true);
         restTemplateField.set(service, restTemplate);
+
+        Field sseRegistryField = RoomServiceImpl.class.getDeclaredField("sseRegistry");
+        sseRegistryField.setAccessible(true);
+        sseRegistryField.set(service, sseRegistry);
+
+        Field lobbySseRegistryField = RoomServiceImpl.class.getDeclaredField("lobbySseRegistry");
+        lobbySseRegistryField.setAccessible(true);
+        lobbySseRegistryField.set(service, lobbySseRegistry);
 
         lenient().when(gamesConfig.findById(anyString())).thenReturn(Optional.empty());
         // Default: caller is the room creator used by buildRoom().
@@ -732,5 +747,85 @@ class RoomServiceImplTest {
 
         verify(restTemplate, never()).delete(anyString());
         assertNotNull(service.getRoomById(room.getId()));
+    }
+
+    // ── SSE emit verification ────────────────────────────────────────────────
+
+    @Test
+    void publishRoomEmitsLobbyAndRoomSseUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        reset(lobbySseRegistry, sseRegistry);
+
+        service.publishRoom(room.getId());
+
+        verify(lobbySseRegistry).emit(argThat(list -> list.size() == 1));
+        verify(sseRegistry).emit(eq(room.getId()), any(Room.class));
+    }
+
+    @Test
+    void addPlayerIdToRoomEmitsLobbyAndRoomSseUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        reset(lobbySseRegistry, sseRegistry);
+
+        service.addPlayerIdToRoom("player-1", room.getId());
+
+        verify(lobbySseRegistry).emit(any());
+        verify(sseRegistry).emit(eq(room.getId()), any(Room.class));
+    }
+
+    @Test
+    void removePlayerFromRoomEmitsLobbyAndRoomSseUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        service.addPlayerIdToRoom("player-1", room.getId());
+        reset(lobbySseRegistry, sseRegistry);
+
+        service.removePlayerFromRoom("player-1", room.getId());
+
+        verify(lobbySseRegistry).emit(any());
+        verify(sseRegistry).emit(eq(room.getId()), any(Room.class));
+    }
+
+    @Test
+    void setUsernameAndProfileEmitsRoomSseUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.addPlayerIdToRoom("player-1", room.getId());
+        reset(sseRegistry);
+
+        service.setUsernameAndProfile(room, "player-1", "Alice", "3");
+
+        verify(sseRegistry).emit(eq(room.getId()), any(Room.class));
+    }
+
+    @Test
+    void updateRoomEmitsLobbyAndRoomSseUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        reset(lobbySseRegistry, sseRegistry);
+
+        room.setUniqueProfilePics(false);
+        service.updateRoom(room);
+
+        verify(lobbySseRegistry).emit(any());
+        verify(sseRegistry).emit(eq(room.getId()), any(Room.class));
+    }
+
+    @Test
+    void deleteRoomByCreatorEmitsSseClosedAndLobbyUpdate() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        reset(lobbySseRegistry, sseRegistry);
+
+        service.deleteRoom(room.getId());
+
+        verify(sseRegistry).emitClosed(room.getId());
+        verify(lobbySseRegistry).emit(argThat(List::isEmpty));
     }
 }
