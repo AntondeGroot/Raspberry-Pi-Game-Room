@@ -548,12 +548,12 @@ td, th, span, p, div, label {
 }
 
 .sendButton {
-  display: block;
+  display: inline-flex;
+  align-items: center;
   font-family: 'Nunito', inherit;
   font-size: var(--font-size-base);
   font-weight: 600;
-  height: 40px;
-  padding: 0 16px;
+  padding: 8px 16px;
   background: linear-gradient(145deg, #fdba74, #f97316);
   border: 2px solid #ea580c;
   border-radius: var(--radius-md);
@@ -648,7 +648,7 @@ td, th, span, p, div, label {
   margin-right: 8px;
   margin-bottom: 10px;
   width: 590px;
-  height: 22px;
+  height: auto;
   resize: none;
   background-color: var(--color-bg-input);
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -1003,8 +1003,10 @@ td, th, span, p, div, label {
 
   /* ── Lobby title ── */
   h1 {
-    font-size: 3em;
+    font-size: clamp(1.4rem, 9vw, 2.5rem);
+    letter-spacing: 0.05em;
     margin: 10px 0;
+    white-space: nowrap;
   }
 
   /* ── Section labels ── */
@@ -1153,5 +1155,151 @@ td, th, span, p, div, label {
   .joinRoomButton {
     font-size: 12px;
     padding: 4px 10px;
+  }
+
+  /* ── Character Selection ─────────────────────────────────────────────────── */
+
+  /* Full-width panel */
+  table.characterPanel {
+    width: 100% !important;
+  }
+
+  .characterPanel td {
+    padding: 0 4px;
+    text-align: left;
+  }
+
+  /* Steps stretch to full width */
+  .steps-container {
+    width: 100%;
+    box-sizing: border-box;
+    padding-top: 40px;
+  }
+
+  /* Allow step label + input to wrap; 16px font stops iOS auto-zoom on focus */
+  .step-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .step-header .gwt-TextBox {
+    flex: 1 1 100%;
+    font-size: 16px;
+    padding: 10px 12px;
+    margin-top: 4px;
+  }
+
+  /* 6-column grid; canvas inline width/height overridden with !important */
+  .profile-pic-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 8px 0;
+  }
+
+  .profile-pic {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Stack buttons full-width, confirm on top */
+  .game-options-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .cancelButton,
+  .confirmButton {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: var(--font-size-md);
+  }
+
+  /* ── Game Options ────────────────────────────────────────────────────────── */
+
+  /* Replace fixed 480px with full-width, reduce padding */
+  .game-options-card {
+    width: 100%;
+    padding: 16px;
+  }
+
+  /* Stack label above control instead of side-by-side */
+  .game-options-field-inline {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 10px 0;
+  }
+
+  /* Select fills the full width */
+  .game-options-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Number input row stays inline but doesn't overflow */
+  .game-options-number-row {
+    flex-wrap: wrap;
+  }
+
+  /* Remove checkbox description indent — no side column to align with */
+  .game-options-field-inline:has(.game-options-checkbox) .game-options-description {
+    margin-left: 0;
+  }
+
+  /* ── Room View ───────────────────────────────────────────────────────────── */
+
+  /* Shorter player simulation so chat fits below without scrolling */
+  .playerSimulation {
+    height: 220px;
+  }
+
+  /* Undo absolute bottom-pinning — stack chat naturally below simulation */
+  .bottom-aligned {
+    position: static;
+    transform: none;
+    margin-bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Convert startRowPanel table into flex so buttons wrap on small screens */
+  table.startRowPanel,
+  table.startRowPanel > tbody,
+  table.startRowPanel > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  table.startRowPanel > tbody > tr > td {
+    display: block;
+    flex: 0 0 auto;
+  }
+
+  /* Full-width chat display; slightly shorter to fit mobile viewport */
+  .MessageDisplayField {
+    width: 100% !important;
+    height: 120px;
+  }
+
+  /* Stretch the input+button table to full width, input takes remaining space */
+  .bottom-aligned .gwt-HorizontalPanel {
+    width: 100%;
+  }
+  .bottom-aligned .gwt-HorizontalPanel > tbody > tr > td:first-child {
+    width: 100%;
+  }
+
+  /* Full-width message input; 16px prevents iOS auto-zoom on focus */
+  .MessageInputField {
+    width: 100% !important;
+    font-size: 16px;
+    margin-right: 6px;
   }
 }
