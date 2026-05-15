@@ -60,7 +60,7 @@ public class LobbyPresenter implements Presenter {
                 AudioPlayer.errorAlert(I18n.c().errRoomNameTooShort());
                 return;
             }
-            if (roomName.length() > 20) {
+            if (roomName.length() > 25) {
                 AudioPlayer.errorAlert(I18n.c().errRoomNameTooLong());
                 return;
             }
@@ -217,7 +217,7 @@ public class LobbyPresenter implements Presenter {
     }
 
     private boolean isRoomNameValid(String roomName) {
-        return roomName != null && !roomName.trim().isEmpty() && roomName.trim().length() <= 20;
+        return roomName != null && !roomName.trim().isEmpty() && roomName.trim().length() <= 25;
     }
 
     private void loadAvailableGames() {
