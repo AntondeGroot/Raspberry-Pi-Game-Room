@@ -8,14 +8,15 @@ import ADG.Lobby.RoomService;
 import ADG.Lobby.RoomServiceException;
 import ADG.config.GamesConfig;
 import com.google.gwt.user.server.rpc.jakarta.RemoteServiceServlet;
-import jakarta.annotation.PostConstruct;
 import jakarta.servlet.annotation.WebServlet;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,39 +38,16 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Autowired
     private RoomStore roomStore;
 
+    @Autowired
+    private RoomSseRegistry sseRegistry;
+
+    @Autowired
+    private LobbySseRegistry lobbySseRegistry;
+
     private static final long EMPTY_ROOM_TTL_MS = 15 * 60 * 1000L;
     private static final long INACTIVE_GAME_TTL_MS = 60 * 60 * 1000L;
 
     RestTemplate restTemplate = new RestTemplate();
-
-    @PostConstruct
-    private void seedTestRoom() {
-        String[][] players = {
-            {"Alice",   "0"},
-            {"Bob",     "15"},
-            {"Charlie", "21"},
-            {"Diana",   "23"},
-            {"Eve",     "47"},
-            {"Frank",   "52"},
-            {"Grace",   "59"},
-        };
-
-        Room room = new Room();
-        room.setId(java.util.UUID.randomUUID().toString());
-        room.setName("Test Room");
-        room.setStatus(GameStatus.WAITING);
-        room.setGameId("keezen");
-        room.setMinPlayers(2);
-
-        for (String[] p : players) {
-            String pid = java.util.UUID.randomUUID().toString();
-            room.addPlayer(pid);
-            room.addPlayerName(pid, p[0]);
-            room.addPlayerProfile(pid, p[1]);
-        }
-        room.setCreatedByUserId(room.getPlayerIds().get(0));
-        roomStore.rooms.add(room);
-    }
 
     @Override
     public synchronized ArrayList<Room> getRooms() {
@@ -119,12 +97,28 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
         return room;
     }
 
+    private void emitLobbyUpdate() {
+        List<Room> visible = roomStore.rooms.stream()
+                .filter(r -> r.getStatus() != GameStatus.PENDING)
+                .collect(Collectors.toList());
+        lobbySseRegistry.emit(visible);
+    }
+
+    private void emitRoomUpdate(String roomId) {
+        roomStore.rooms.stream()
+                .filter(r -> r.getId().equals(roomId))
+                .findFirst()
+                .ifPresent(r -> sseRegistry.emit(roomId, r));
+    }
+
     @Override
     public synchronized void publishRoom(String roomId) {
         roomStore.rooms.stream()
                 .filter(r -> r.getId().equals(roomId) && r.getStatus() == GameStatus.PENDING)
                 .findFirst()
                 .ifPresent(r -> r.setStatus(GameStatus.WAITING));
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
     }
 
     // NOTE: This GWT-RPC method is NOT protected by Spring Security.
@@ -138,6 +132,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 .anyMatch(r -> r.getCreatedByUserId().equals(callerId));
         if (!isCreator) return;
         roomStore.deleteRoom(roomId);
+        sseRegistry.emitClosed(roomId);
+        emitLobbyUpdate();
     }
 
     String getPlayerIdFromRequest() {
@@ -173,6 +169,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             logger.error("Room not found with ID: {}", room.getId());
             throw new RoomServiceException("Room with ID " + room.getId() + " not found");
         }
+        emitRoomUpdate(room.getId());
+        emitLobbyUpdate();
     }
 
     @Override
@@ -191,6 +189,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 }
             }
         }
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
     }
 
     @Override
@@ -210,6 +210,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 }
             }
         }
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
     }
 
     @Override
@@ -220,6 +222,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 room1.addPlayerProfile(userId, profileId);
             }
         }
+        emitRoomUpdate(room.getId());
     }
 
     @Override
@@ -299,6 +302,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 room1.setGameSessionId(sessionId);
                 room1.setGameBaseUrl("/" + game.getId());
                 room1.setStatus(GameStatus.PLAYING);
+                emitRoomUpdate(roomId);
+                emitLobbyUpdate();
                 return room1;
             }
         }
@@ -332,13 +337,19 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Scheduled(fixedDelay = 60_000)
     public synchronized void deleteEmptyRooms() {
         long now = System.currentTimeMillis();
+        List<String> deleted = new ArrayList<>();
         roomStore.emptyRoomTimestamps.entrySet().removeIf(entry -> {
             if (now - entry.getValue() >= EMPTY_ROOM_TTL_MS) {
                 roomStore.rooms.removeIf(r -> r.getId().equals(entry.getKey()) && r.getPlayerIds().isEmpty());
+                deleted.add(entry.getKey());
                 return true;
             }
             return false;
         });
+        if (!deleted.isEmpty()) {
+            deleted.forEach(id -> sseRegistry.emitClosed(id));
+            emitLobbyUpdate();
+        }
     }
 
     @Scheduled(fixedDelay = 30_000)
@@ -350,6 +361,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             }
         }
 
+        boolean anyDeleted = false;
         for (Room room : playingRooms) {
             if ("Test Room".equals(room.getName())) {
                 continue;
@@ -371,6 +383,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             } catch (RestClientException e) {
                 logger.warn("Game session no longer exists for room {}: {}", room.getId(), e.getMessage());
                 roomStore.deleteRoom(room.getId());
+                sseRegistry.emitClosed(room.getId());
+                anyDeleted = true;
                 continue;
             }
 
@@ -407,9 +421,12 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                         logger.warn("Failed to delete stale game session {}: {}", sessionId, e.getMessage());
                     }
                     roomStore.deleteRoom(room.getId());
+                    sseRegistry.emitClosed(room.getId());
+                    anyDeleted = true;
                 }
             }
         }
+        if (anyDeleted) emitLobbyUpdate();
     }
 
     private Map<String, Object> parseGameOptions(HashMap<String, String> raw) {

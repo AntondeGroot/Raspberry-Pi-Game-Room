@@ -2,42 +2,40 @@ package ADG.Lobby;
 
 import ADG.*;
 import ADG.Utils.Cookie;
+import ADG.Utils.EventSourceWrapper;
 import ADG.audio.AudioPlayer;
 import ADG.i18n.I18n;
-import ADG.Utils.PollingService;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.*;
+import com.google.gwt.json.client.*;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class LobbyPresenter implements Presenter {
 
-    private static final int POLLING_INTERVAL_MS = 200;
-    private static final int OPTIONS_POLLING_INTERVAL_MS = 2000;
     private final LobbyView view;
     private final PresenterManager presenterManager;
     private final RoomServiceAsync roomService;
     private final ArrayList<Room> rooms = new ArrayList<>();
-    private PollingService pollingService = new PollingService();
-    private final PollingService gameOptionsPollingService = new PollingService();
+    private final EventSourceWrapper lobbySse = new EventSourceWrapper();
     private ArrayList<GameOption> cachedGameOptions = null;
-    private String pollingForGameId = null;
+    private String selectedGameId = null;
 
     @Override
     public void start() {
         History.newItem("");
         checkAdminStatus();
         loadAvailableGames();
-        pollingService.startPolling(POLLING_INTERVAL_MS, this::pollServerForRooms);
+        lobbySse.open("/lobby/stream", this::handleLobbySseMessage);
     }
 
     @Override
     public void stop() {
-        pollingService.stopPolling();
-        gameOptionsPollingService.stopPolling();
+        lobbySse.close();
     }
 
     public LobbyPresenter(LobbyView view, PresenterManager presenterManager, RoomServiceAsync roomService) {
@@ -101,48 +99,92 @@ public class LobbyPresenter implements Presenter {
         view.updateRoomTable(rooms);
     }
 
-    /**
-     * Poll the server to get the list of available rooms.
-     */
-    private void pollServerForRooms() {
-        roomService.getRooms(new AsyncCallback<ArrayList<Room>>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                GWT.log("Failed to fetch rooms: " + throwable.getMessage());
+    private void handleLobbySseMessage(String data) {
+        try {
+            ArrayList<Room> fetchedRooms = parseRooms(data);
+            if (!rooms.equals(fetchedRooms)) {
+                updateRooms(fetchedRooms);
+                updateRoomTable();
             }
+        } catch (Exception e) {
+            GWT.log("Lobby SSE parse error: " + e.getMessage());
+        }
+    }
 
-            @Override
-            public void onSuccess(ArrayList<Room> fetchedRooms) {
-                if(!rooms.equals(fetchedRooms)){
-                    GWT.log("update room list table");
-                    updateRooms(fetchedRooms);
-                    updateRoomTable();
-                }
+    private ArrayList<Room> parseRooms(String data) {
+        ArrayList<Room> result = new ArrayList<>();
+        JSONValue parsed = JSONParser.parseStrict(data);
+        JSONArray arr = parsed.isArray();
+        if (arr == null) return result;
+        for (int i = 0; i < arr.size(); i++) {
+            JSONObject obj = arr.get(i).isObject();
+            if (obj != null) result.add(parseRoom(obj));
+        }
+        return result;
+    }
+
+    private Room parseRoom(JSONObject obj) {
+        Room r = new Room();
+        r.setId(str(obj, "id"));
+        r.setName(str(obj, "name"));
+        r.setCreatedByUserId(str(obj, "createdByUserId"));
+        r.setGameId(str(obj, "gameId"));
+
+        JSONValue statusVal = obj.get("status");
+        if (statusVal != null && statusVal.isString() != null) {
+            try { r.setStatus(GameStatus.valueOf(statusVal.isString().stringValue())); }
+            catch (Exception ignored) { r.setStatus(GameStatus.WAITING); }
+        }
+        JSONValue maxVal = obj.get("maxPlayers");
+        if (maxVal != null && maxVal.isNumber() != null)
+            r.setMaxPlayers((int) maxVal.isNumber().doubleValue());
+        JSONValue minVal = obj.get("minPlayers");
+        if (minVal != null && minVal.isNumber() != null)
+            r.setMinPlayers((int) minVal.isNumber().doubleValue());
+
+        JSONValue playerIdsVal = obj.get("playerIds");
+        if (playerIdsVal != null && playerIdsVal.isArray() != null) {
+            JSONArray arr = playerIdsVal.isArray();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONValue v = arr.get(i);
+                if (v != null && v.isString() != null) r.addPlayer(v.isString().stringValue());
             }
-        });
+        }
+        for (java.util.Map.Entry<String, String> e : parseStringMap(obj.get("playerNames")).entrySet())
+            r.addPlayerName(e.getKey(), e.getValue());
+        for (java.util.Map.Entry<String, String> e : parseStringMap(obj.get("playerProfiles")).entrySet())
+            r.addPlayerProfile(e.getKey(), e.getValue());
+        return r;
+    }
+
+    private String str(JSONObject obj, String key) {
+        JSONValue v = obj.get(key);
+        if (v == null || v.isString() == null) return null;
+        return v.isString().stringValue();
+    }
+
+    private HashMap<String, String> parseStringMap(JSONValue val) {
+        HashMap<String, String> map = new HashMap<>();
+        if (val == null || val.isObject() == null) return map;
+        JSONObject obj = val.isObject();
+        for (String key : obj.keySet()) {
+            JSONValue v = obj.get(key);
+            if (v != null && v.isString() != null) map.put(key, v.isString().stringValue());
+        }
+        return map;
     }
 
     private void onGameSelectionChanged() {
-        startPollingForGameOptions();
-    }
-
-    private void startPollingForGameOptions() {
         String gameId = view.getSelectedGameId();
-        if (gameId == null || gameId.equals(pollingForGameId)) return;
-        pollingForGameId = gameId;
+        if (gameId == null || gameId.equals(selectedGameId)) return;
+        selectedGameId = gameId;
         cachedGameOptions = null;
-        gameOptionsPollingService.stopPolling();
-        gameOptionsPollingService.startPolling(OPTIONS_POLLING_INTERVAL_MS, () -> fetchGameOptions(gameId));
-    }
-
-    private void fetchGameOptions(String gameId) {
         roomService.getGameOptions(gameId, new AsyncCallback<ArrayList<GameOption>>() {
-            @Override public void onFailure(Throwable t) { /* retry on next poll */ }
+            @Override public void onFailure(Throwable t) {
+                GWT.log("Failed to load game options: " + t.getMessage());
+            }
             @Override public void onSuccess(ArrayList<GameOption> options) {
-                if (gameId.equals(pollingForGameId)) {
-                    cachedGameOptions = options;
-                    gameOptionsPollingService.stopPolling();
-                }
+                if (gameId.equals(selectedGameId)) cachedGameOptions = options;
             }
         });
     }
@@ -187,7 +229,7 @@ public class LobbyPresenter implements Presenter {
             @Override
             public void onSuccess(ArrayList<GameDefinition> games) {
                 view.populateGameList(games);
-                startPollingForGameOptions();
+                onGameSelectionChanged();
             }
         });
     }

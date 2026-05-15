@@ -5,7 +5,7 @@ import ADG.audio.AudioPlayer;
 import ADG.i18n.I18n;
 import ADG.Utils.ChatCipher;
 import ADG.Utils.Cookie;
-import ADG.Utils.PollingService;
+import ADG.Utils.EventSourceWrapper;
 import ADG.Utils.TimeUtils;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.shared.HandlerRegistration;
@@ -18,6 +18,7 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RoomPresenter implements Presenter {
 
@@ -32,7 +33,8 @@ public class RoomPresenter implements Presenter {
     private HashMap<String, String> userProfiles = new HashMap<>();
     private boolean playerListInitialized = false;
     private boolean isAdmin = false;
-    private final PollingService pollingService = new PollingService();
+    private final EventSourceWrapper sseWrapper = new EventSourceWrapper();
+    private final EventSourceWrapper chatSseWrapper = new EventSourceWrapper();
     private final List<HandlerRegistration> handlerRegistrations = new ArrayList<>();
 
     public RoomPresenter(RoomView roomView, Room model, PresenterManager presenterManager, RoomServiceAsync roomService, MessageServiceAsync messageService) {
@@ -48,12 +50,18 @@ public class RoomPresenter implements Presenter {
         AudioPlayer.play(AudioPlayer.PLAYER_ENTER);
         checkAdminStatus();
         bind();
-        pollingService.startPolling(500, this::pollServerForUpdates);
+        sseWrapper.open(
+            "/rooms/" + room.getId() + "/stream",
+            this::handleRoomSseMessage,
+            () -> { stop(); presenterManager.switchToLobby(); }
+        );
+        chatSseWrapper.open("/chat/" + room.getId() + "/stream", this::handleChatSseMessage);
     }
 
     @Override
     public void stop() {
-        pollingService.stopPolling();
+        sseWrapper.close();
+        chatSseWrapper.close();
         for (HandlerRegistration reg : handlerRegistrations) reg.removeHandler();
         handlerRegistrations.clear();
     }
@@ -195,91 +203,120 @@ public class RoomPresenter implements Presenter {
         }
     }
 
-    public void pollServerForUpdates(){
-        pollServerForPlayers();
-        pollServerForMessages();
-    }
-
-    public void pollServerForPlayers() {
-        roomService.getRoomById(room.getId(), new AsyncCallback<Room>() {
-            @Override
-            public void onFailure(Throwable throwable) {
-                GWT.log(throwable.getMessage());
-            }
-
-            @Override
-            public void onSuccess(Room updatedRoom) {
-                if (updatedRoom == null) {
-                    stop();
-                    presenterManager.switchToLobby();
-                    return;
-                }
-                if (updatedRoom.getStatus() == GameStatus.PLAYING && updatedRoom.getGameSessionId() != null) {
-                    stop();
-                    String url = updatedRoom.getGameBaseUrl()
-                            + "/?sessionid=" + updatedRoom.getGameSessionId()
-                            + "&playerid=" + Cookie.getPlayerId()
-                            + "&locale=" + Cookie.getLanguage().name();
-                    GWT.log("Navigating to game URL: " + url);
-                    GWT.log("Game base URL: " + updatedRoom.getGameBaseUrl() + ", Session ID: " + updatedRoom.getGameSessionId());
-                    Window.Location.replace(url);
-                    return;
-                }
-                HashMap<String, String> serverUserNames = updatedRoom.getPlayerNames();
-                HashMap<String, String> serverUserProfiles = updatedRoom.getPlayerProfiles();
-                if (!serverUserNames.equals(userNames) || !serverUserProfiles.equals(userProfiles)) {
-                    if (playerListInitialized && serverUserNames.size() > userNames.size()) {
-                        AudioPlayer.play(AudioPlayer.PLAYER_ENTER);
-                    }
-                    playerListInitialized = true;
-                    userNames = serverUserNames;
-                    userProfiles = serverUserProfiles;
-                    roomView.refreshPlayerList(userNames, userProfiles);
-                } else {
-                    playerListInitialized = true;
-                }
-                roomView.updateCreatorControls(updatedRoom);
-            }
-        });
-    }
-
-    public void pollServerForMessages() {
+    private void handleRoomSseMessage(String data) {
         try {
-            RequestBuilder rb = new RequestBuilder(RequestBuilder.GET,
-                    URL.encode(CHAT_BASE_URL + "/chat/" + room.getId()));
-            rb.setHeader("Accept", "application/json");
-            rb.sendRequest(null, new RequestCallback() {
-                @Override
-                public void onResponseReceived(Request req, Response res) {
-                    if (res.getStatusCode() < 200 || res.getStatusCode() >= 300) return;
-                    JSONValue parsed;
-                    try {
-                        parsed = JSONParser.parseStrict(res.getText());
-                    } catch (JSONException e) {
-                        GWT.log("chat poll: invalid JSON response: " + e.getMessage());
-                        return;
-                    }
-                    JSONArray arr = parsed.isArray();
-                    if (arr == null || arr.size() == chatMessageCount) return;
-                    chatMessageCount = arr.size();
-                    ArrayList<Message> decrypted = new ArrayList<>();
-                    for (int i = 0; i < arr.size(); i++) {
-                        JSONObject m = arr.get(i).isObject();
-                        if (m == null) continue;
-                        String timestampUTC = m.get("timestampUTC").isString().stringValue();
-                        String sender    = m.get("sender").isString().stringValue();
-                        String encrypted = m.get("message").isString().stringValue();
-                        decrypted.add(new Message(TimeUtils.convertUTCToLocal(timestampUTC), sender,
-                                ChatCipher.decrypt(encrypted, room.getId())));
-                    }
-                    roomView.refreshMessages(decrypted);
-                }
-                @Override public void onError(Request req, Throwable ex) {
-                    GWT.log("chat poll error: " + ex.getMessage());
-                }
-            });
-        } catch (RequestException e) {
-            GWT.log("chat poll error: " + e.getMessage());
+            handleRoomSseMessageInternal(data);
+        } catch (Exception e) {
+            GWT.log("Room SSE parse error: " + e.getMessage());
+        }
+    }
+
+    private void handleRoomSseMessageInternal(String data) {
+        JSONValue parsed = JSONParser.parseStrict(data);
+        JSONObject obj = parsed.isObject();
+        if (obj == null) return;
+
+        Room updatedRoom = parseRoom(obj);
+
+        if (updatedRoom.getStatus() == GameStatus.PLAYING && updatedRoom.getGameSessionId() != null) {
+            stop();
+            String url = updatedRoom.getGameBaseUrl()
+                    + "/?sessionid=" + updatedRoom.getGameSessionId()
+                    + "&playerid=" + Cookie.getPlayerId()
+                    + "&locale=" + Cookie.getLanguage().name();
+            GWT.log("Navigating to game URL: " + url);
+            Window.Location.replace(url);
+            return;
+        }
+
+        HashMap<String, String> serverUserNames = updatedRoom.getPlayerNames();
+        HashMap<String, String> serverUserProfiles = updatedRoom.getPlayerProfiles();
+        if (!serverUserNames.equals(userNames) || !serverUserProfiles.equals(userProfiles)) {
+            if (playerListInitialized && serverUserNames.size() > userNames.size()) {
+                AudioPlayer.play(AudioPlayer.PLAYER_ENTER);
+            }
+            playerListInitialized = true;
+            userNames = serverUserNames;
+            userProfiles = serverUserProfiles;
+            roomView.refreshPlayerList(userNames, userProfiles);
+        } else {
+            playerListInitialized = true;
+        }
+        roomView.updateCreatorControls(updatedRoom);
+    }
+
+    private Room parseRoom(JSONObject obj) {
+        Room r = new Room();
+        r.setId(str(obj, "id"));
+        r.setName(str(obj, "name"));
+        r.setCreatedByUserId(str(obj, "createdByUserId"));
+        r.setGameId(str(obj, "gameId"));
+        r.setGameSessionId(str(obj, "gameSessionId"));
+        r.setGameBaseUrl(str(obj, "gameBaseUrl"));
+
+        JSONValue statusVal = obj.get("status");
+        if (statusVal != null && statusVal.isString() != null) {
+            try { r.setStatus(GameStatus.valueOf(statusVal.isString().stringValue())); }
+            catch (Exception ignored) { r.setStatus(GameStatus.WAITING); }
+        }
+        JSONValue maxVal = obj.get("maxPlayers");
+        if (maxVal != null && maxVal.isNumber() != null)
+            r.setMaxPlayers((int) maxVal.isNumber().doubleValue());
+        JSONValue minVal = obj.get("minPlayers");
+        if (minVal != null && minVal.isNumber() != null)
+            r.setMinPlayers((int) minVal.isNumber().doubleValue());
+
+        JSONValue playerIdsVal = obj.get("playerIds");
+        if (playerIdsVal != null && playerIdsVal.isArray() != null) {
+            JSONArray arr = playerIdsVal.isArray();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONValue v = arr.get(i);
+                if (v != null && v.isString() != null) r.addPlayer(v.isString().stringValue());
+            }
+        }
+        for (Map.Entry<String, String> e : parseStringMap(obj.get("playerNames")).entrySet())
+            r.addPlayerName(e.getKey(), e.getValue());
+        for (Map.Entry<String, String> e : parseStringMap(obj.get("playerProfiles")).entrySet())
+            r.addPlayerProfile(e.getKey(), e.getValue());
+        return r;
+    }
+
+    private String str(JSONObject obj, String key) {
+        JSONValue v = obj.get(key);
+        if (v == null || v.isString() == null) return null;
+        return v.isString().stringValue();
+    }
+
+    private HashMap<String, String> parseStringMap(JSONValue val) {
+        HashMap<String, String> map = new HashMap<>();
+        if (val == null || val.isObject() == null) return map;
+        JSONObject jsonObj = val.isObject();
+        for (String key : jsonObj.keySet()) {
+            JSONValue v = jsonObj.get(key);
+            if (v != null && v.isString() != null) map.put(key, v.isString().stringValue());
+        }
+        return map;
+    }
+
+    private void handleChatSseMessage(String data) {
+        try {
+            JSONValue parsed = JSONParser.parseStrict(data);
+            JSONArray arr = parsed.isArray();
+            if (arr == null || arr.size() == chatMessageCount) return;
+            chatMessageCount = arr.size();
+            ArrayList<Message> decrypted = new ArrayList<>();
+            for (int i = 0; i < arr.size(); i++) {
+                JSONObject m = arr.get(i).isObject();
+                if (m == null) continue;
+                String timestampUTC = m.get("timestampUTC").isString().stringValue();
+                String sender       = m.get("sender").isString().stringValue();
+                String encrypted    = m.get("message").isString().stringValue();
+                decrypted.add(new Message(TimeUtils.convertUTCToLocal(timestampUTC), sender,
+                        ChatCipher.decrypt(encrypted, room.getId())));
+            }
+            roomView.refreshMessages(decrypted);
+        } catch (Exception e) {
+            GWT.log("Chat SSE parse error: " + e.getMessage());
         }
     }
 

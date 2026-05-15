@@ -3,24 +3,26 @@ package ADG.Lobby;
 import ADG.*;
 import ADG.audio.AudioPlayer;
 import ADG.Utils.Cookie;
+import ADG.Utils.EventSourceWrapper;
 import ADG.i18n.I18n;
-import ADG.Utils.PollingService;
 import com.google.gwt.canvas.client.Canvas;
 import com.google.gwt.canvas.dom.client.Context2d;
 import com.google.gwt.dom.client.ImageElement;
 import com.google.gwt.event.dom.client.LoadEvent;
 import com.google.gwt.event.shared.HandlerRegistration;
+import com.google.gwt.core.client.GWT;
+import com.google.gwt.json.client.*;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.Widget;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
 public class CharacterSelectionPresenter implements Presenter {
 
-    private static final int SPRITE_SIZE        = 100;
-    private static final int POLLING_INTERVAL_MS = 500;
+    private static final int SPRITE_SIZE = 100;
 
     private final RoomServiceAsync roomService;
     private final CharacterSelectionView view;
@@ -30,7 +32,7 @@ public class CharacterSelectionPresenter implements Presenter {
     private Canvas[] canvases = new Canvas[0];
     private HandlerRegistration confirmReg;
     private HandlerRegistration cancelReg;
-    private final PollingService pollingService = new PollingService();
+    private final EventSourceWrapper sseWrapper = new EventSourceWrapper();
 
     public CharacterSelectionPresenter(CharacterSelectionView view, Room room,
                                        PresenterManager presenterManager,
@@ -50,47 +52,57 @@ public class CharacterSelectionPresenter implements Presenter {
         view.getSelectedProfileLabel().setText(I18n.c().noProfilePictureSelected());
         view.getUsernameInput().setText(ADG.Utils.Cookie.getUsername());
         loadProfilePictures();
-        if (room.isUniqueProfilePics()) {
-            pollingService.startPolling(POLLING_INTERVAL_MS, this::pollServerForProfileUpdates);
-        }
+        sseWrapper.open(
+            "/rooms/" + room.getId() + "/stream",
+            this::handleRoomSseMessage,
+            presenterManager::switchToLobby
+        );
     }
 
     @Override
     public void stop() {
-        pollingService.stopPolling();
+        sseWrapper.close();
         if (confirmReg != null) { confirmReg.removeHandler(); confirmReg = null; }
         if (cancelReg  != null) { cancelReg.removeHandler();  cancelReg  = null; }
     }
 
-    private void pollServerForProfileUpdates() {
-        roomService.getRoomById(room.getId(), new AsyncCallback<Room>() {
-            @Override
-            public void onFailure(Throwable t) {}
+    private void handleRoomSseMessage(String data) {
+        if (!room.isUniqueProfilePics()) return;
+        try {
+            JSONValue parsed = JSONParser.parseStrict(data);
+            JSONObject obj = parsed.isObject();
+            if (obj == null) return;
 
-            @Override
-            public void onSuccess(Room updatedRoom) {
-                if (updatedRoom == null) {
-                    pollingService.stopPolling();
-                    presenterManager.switchToLobby();
-                    return;
-                }
-                if (!updatedRoom.getPlayerProfiles().equals(room.getPlayerProfiles())) {
-                    String myId = ADG.Utils.Cookie.getPlayerId();
-                    boolean selectionTaken = selectedProfileIndex != -1
-                            && updatedRoom.getPlayerProfiles().entrySet().stream()
-                                         .filter(e -> !e.getKey().equals(myId))
-                                         .anyMatch(e -> e.getValue().equals(String.valueOf(selectedProfileIndex)));
-                    room.getPlayerProfiles().clear();
-                    room.getPlayerProfiles().putAll(updatedRoom.getPlayerProfiles());
-                    if (selectionTaken) {
-                        selectedProfileIndex = -1;
-                        view.getSelectedProfileLabel().setText(I18n.c().noProfilePictureSelected());
-                        view.showAlert(I18n.c().errProfileTaken());
-                    }
-                    loadProfilePictures();
-                }
+            HashMap<String, String> updatedProfiles = parseStringMap(obj.get("playerProfiles"));
+            if (updatedProfiles.equals(room.getPlayerProfiles())) return;
+
+            String myId = Cookie.getPlayerId();
+            boolean selectionTaken = selectedProfileIndex != -1
+                    && updatedProfiles.entrySet().stream()
+                                     .filter(e -> !e.getKey().equals(myId))
+                                     .anyMatch(e -> e.getValue().equals(String.valueOf(selectedProfileIndex)));
+            room.getPlayerProfiles().clear();
+            room.getPlayerProfiles().putAll(updatedProfiles);
+            if (selectionTaken) {
+                selectedProfileIndex = -1;
+                view.getSelectedProfileLabel().setText(I18n.c().noProfilePictureSelected());
+                view.showAlert(I18n.c().errProfileTaken());
             }
-        });
+            loadProfilePictures();
+        } catch (Exception e) {
+            GWT.log("CharacterSelection SSE parse error: " + e.getMessage());
+        }
+    }
+
+    private HashMap<String, String> parseStringMap(JSONValue val) {
+        HashMap<String, String> map = new HashMap<>();
+        if (val == null || val.isObject() == null) return map;
+        JSONObject obj = val.isObject();
+        for (String key : obj.keySet()) {
+            JSONValue v = obj.get(key);
+            if (v != null && v.isString() != null) map.put(key, v.isString().stringValue());
+        }
+        return map;
     }
 
     private void loadProfilePictures() {
