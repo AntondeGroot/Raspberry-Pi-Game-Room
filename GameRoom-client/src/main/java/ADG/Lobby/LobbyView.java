@@ -60,6 +60,15 @@ public class LobbyView extends Composite {
     public Button getCreateRoomButton() { return createRoomButton; }
     public Button getRandomNameButton() { return randomNameButton; }
     public TextBox getRoomNameInput() { return roomNameInput; }
+    public HTML getCreateRoomTitle() { return createRoomTitle; }
+
+    public void toggleCreateRoom() {
+        if (createRoomPanel.getStyleName().contains("create-room-card--open")) {
+            createRoomPanel.removeStyleName("create-room-card--open");
+        } else {
+            createRoomPanel.addStyleName("create-room-card--open");
+        }
+    }
 
     public void setJoinHandler(JoinHandler handler) {
         this.joinHandler = handler;
@@ -122,7 +131,7 @@ public class LobbyView extends Composite {
         header.add(makeHeaderCell(I18n.c().colGame(),     "room-cell-game"));
         header.add(makeHeaderCell(I18n.c().colPlayers(),  "room-cell-players"));
         header.add(makeHeaderCell(I18n.c().colStatus(),   "room-cell-status"));
-        header.add(makeHeaderCell("",                     "room-cell-action"));
+        header.add(makeHeaderCell("",                     "room-cell-action room-cell-button-header"));
         roomTableContainer.add(header);
     }
 
