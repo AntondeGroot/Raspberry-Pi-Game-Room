@@ -47,6 +47,7 @@ public class LobbyPresenter implements Presenter {
 
     private void bind() {
         view.setCurrentPlayerId(Cookie.getPlayerId());
+        view.getCreateRoomTitle().addClickHandler(event -> view.toggleCreateRoom());
         view.addGameSelectionChangeHandler(e -> onGameSelectionChanged());
         view.setDeleteHandler(this::deleteRoomAsAdmin);
         view.getCreateRoomButton().addClickHandler(event -> {

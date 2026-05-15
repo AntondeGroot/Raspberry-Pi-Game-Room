@@ -985,3 +985,173 @@ td, th, span, p, div, label {
   transform: translateY(1px);
   box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
 }
+
+/* =============================================
+   Mobile — lobby optimisations (≤ 600 px)
+   ============================================= */
+@media (max-width: 600px) {
+
+  /* Scale up the global font-size tokens */
+  :root {
+    --font-size-sm:   14px;
+    --font-size-base: 16px;
+    --font-size-md:   18px;
+    --font-size-lg:   20px;
+  }
+
+  body { padding: 4px; }
+
+  /* ── Lobby title ── */
+  h1 {
+    font-size: 3em;
+    margin: 10px 0;
+  }
+
+  /* ── Section labels ── */
+  .section-title {
+    font-size: 1.4em;
+    margin-bottom: 12px;
+  }
+
+  .lobbyMainPanel { border-radius: var(--radius-lg); }
+
+  /* ── Language selector: top-right corner, scrolls out of view ──
+     position:absolute fixes it at a spot in page coordinates so it doesn't
+     move as content loads; unlike position:fixed it disappears when the user
+     scrolls far enough down.                                                  */
+  #lang-selector-root {
+    position: absolute;
+    top: 100px;
+    right: 12px;
+    left: auto;
+    transform: none;
+  }
+
+
+  .lang-listbox {
+    padding: 4px 10px 4px 28px;
+    background-size: 15px 15px;
+    background-position: 7px center;
+  }
+
+  /* ── Create-room card ──
+     margin-top reserves space for the language selector sitting above.
+     width: auto + side margins inset the card away from the panel edge. */
+  .create-room-card {
+    width: auto;
+    margin-top: 62px;
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 16px;
+  }
+
+  /* ── Collapsible create-room card ──
+     Fields and actions are hidden by default; the --open modifier reveals them.
+     On desktop these rules don't exist so the card is always fully visible. */
+  .create-room-card .create-room-fields,
+  .create-room-card .create-room-actions {
+    display: none;
+  }
+
+  .create-room-card--open .create-room-fields,
+  .create-room-card--open .create-room-actions {
+    display: flex;
+  }
+
+  /* Rotating triangle on the card heading */
+  .create-room-card h2.section-title {
+    cursor: pointer;
+    margin-bottom: 0;
+  }
+
+  .create-room-card h2.section-title::before {
+    content: "▶";
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 0.72em;
+    transition: transform 0.2s ease;
+  }
+
+  .create-room-card--open h2.section-title {
+    margin-bottom: 12px;
+  }
+
+  .create-room-card--open h2.section-title::before {
+    transform: rotate(90deg);
+  }
+
+  /* Stack Room Name and Select Game fields vertically */
+  .create-room-fields { flex-wrap: wrap; }
+  .create-room-field  { min-width: 100%; }
+
+  /* Bigger touch targets */
+  .create-room-input,
+  .create-room-select { padding: 12px 14px; }
+
+  /* Full-width Create Room button */
+  .createRoomButton { width: 100%; padding: 12px 16px; }
+  .randomNameButton { padding: 10px 14px; }
+
+  /* "Available Rooms" label — div, not h2, so this won't touch the card titles */
+  div.section-title {
+    margin-left: 32px;
+    margin-right: 12px;
+  }
+
+  /* ── Room table ──
+     The container defines 5 subgrid tracks matching the desktop layout, but
+     with col-5 forced to 0 so the action column vanishes from the header.
+     Header and data rows both inherit these tracks via subgrid (same as
+     desktop) so every column aligns perfectly across all rows.
+     Each data row gets a second sub-row: the join/rejoin button sits there,
+     spanning cols 1–4 with its right edge flush with col-4's right edge.
+     The button overflows left as needed — it never widens any column.       */
+  .room-table-container {
+    width: calc(100vw - 40px);
+    margin-left: 12px;
+    margin-right: 12px;
+    overflow-x: hidden;
+    /* col-5 = 0: action column exists in header subgrid but takes no space */
+    grid-template-columns: minmax(max-content, 1fr) max-content max-content max-content 0;
+    column-gap: 8px;
+  }
+
+  /* Hide the empty 5th-column header cell (col track is already 0px) */
+  .room-table-header .room-cell-action,
+  .room-cell-button-header {
+    display: none;
+  }
+
+  /* Data rows: subgrid (inherited, same as desktop) + a second sub-row for
+     the action button. Empty action cells collapse to nothing.              */
+  .room-table-row {
+    grid-template-columns: subgrid;
+    grid-template-rows: auto auto;
+  }
+
+  .room-table-row .room-cell-action:empty {
+    display: none;
+  }
+
+  /* Action cell: sub-row 2, spanning cols 1–4, button right-aligned to
+     col-4's right edge. justify-self: end keeps the cell compact so the
+     button width does not influence any column's sizing.                    */
+  .room-table-row .room-cell-action {
+    grid-column: 1 / 5;
+    grid-row: 2;
+    justify-self: end;
+    align-self: start;
+    padding: 2px 8px 4px;
+  }
+
+  .room-table-cell,
+  .room-table-header-cell {
+    font-size: 13px;
+    padding: 8px 6px;
+  }
+
+  .joinRoomButton {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+}
