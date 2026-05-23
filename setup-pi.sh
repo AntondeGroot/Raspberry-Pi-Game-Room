@@ -68,6 +68,11 @@ if [ "$USE_NAMED_TUNNEL" = true ]; then
     service: http://localhost:80
 "
   done
+  if [ -n "$SSH_DOMAIN" ]; then
+    INGRESS_BLOCK+="  - hostname: $SSH_DOMAIN
+    service: ssh://localhost:22
+"
+  fi
   INGRESS_BLOCK+="  - service: http_status:404"
 
   cat > "$TMP_CLOUDFLARED_CONFIG" <<EOF
@@ -137,4 +142,22 @@ if [ "$USE_NAMED_TUNNEL" = true ]; then
   done
 else
   echo "   To find your public tunnel URL, run: ./get-tunnel-url.sh"
+fi
+
+if [ -n "$SSH_DOMAIN" ]; then
+  echo ""
+  echo "🔑 SSH over Cloudflare Tunnel is configured for: $SSH_DOMAIN"
+  echo "   Add a CNAME DNS record in Cloudflare: $SSH_DOMAIN → <your-tunnel-id>.cfargotunnel.com"
+  echo ""
+  echo "   On your Mac, install cloudflared if you haven't already:"
+  echo "     brew install cloudflared"
+  echo ""
+  echo "   Add this to ~/.ssh/config on your Mac:"
+  echo "     Host my-pi-ext"
+  echo "       HostName $SSH_DOMAIN"
+  echo "       User ubuntu"
+  echo "       IdentityFile ~/.ssh/pi_deploy_key"
+  echo "       ProxyCommand cloudflared access ssh --hostname %h"
+  echo ""
+  echo "   Then deploy from any network with: ./deploy.sh my-pi-ext"
 fi
