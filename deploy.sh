@@ -3,7 +3,7 @@ set -e
 
 if [ -n "$1" ]; then
   TARGET="$1"
-elif timeout 5 ssh -i ~/.ssh/pi_deploy_key -o ConnectTimeout=4 -o BatchMode=yes -o ConnectionAttempts=1 my-pi true 2>/dev/null; then
+elif ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectionAttempts=1 my-pi true 2>/dev/null; then
   TARGET=my-pi
 else
   echo "⚠️  my-pi unreachable, falling back to my-pi-ext (Cloudflare Tunnel)..."

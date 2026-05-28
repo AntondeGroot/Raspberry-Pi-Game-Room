@@ -17,6 +17,7 @@ import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class GameOptionsView extends Composite {
 
@@ -141,6 +142,53 @@ public class GameOptionsView extends Composite {
             gameOptionWidgets.add(inputWidget);
         }
         gameSpecificOptionsPanel.setVisible(true);
+        applyMutualExclusions(options);
+    }
+
+    private void applyMutualExclusions(ArrayList<GameOption> options) {
+        HashSet<String> wiredPairs = new HashSet<>();
+        for (GameOption option : options) {
+            ArrayList<String> incompatibles = option.getIncompatibleWith();
+            if (incompatibles == null || incompatibles.isEmpty()) continue;
+            for (String otherKey : incompatibles) {
+                String pairKey = option.getKey().compareTo(otherKey) < 0
+                        ? option.getKey() + "|" + otherKey
+                        : otherKey + "|" + option.getKey();
+                if (wiredPairs.add(pairKey)) {
+                    wireMutualExclusion(option.getKey(), otherKey);
+                }
+            }
+        }
+    }
+
+    private void wireMutualExclusion(String keyA, String keyB) {
+        int idxA = gameOptionKeys.indexOf(keyA);
+        int idxB = gameOptionKeys.indexOf(keyB);
+        if (idxA < 0 || idxB < 0) return;
+        Widget wA = gameOptionWidgets.get(idxA);
+        Widget wB = gameOptionWidgets.get(idxB);
+        if (!(wA instanceof CheckBox) || !(wB instanceof CheckBox)) return;
+        CheckBox cbA = (CheckBox) wA;
+        CheckBox cbB = (CheckBox) wB;
+
+        // Apply initial state before wiring handlers
+        if (cbA.getValue())      setOptionDisabled(idxB, true);
+        else if (cbB.getValue()) setOptionDisabled(idxA, true);
+
+        cbA.addValueChangeHandler(e -> setOptionDisabled(idxB, e.getValue()));
+        cbB.addValueChangeHandler(e -> setOptionDisabled(idxA, e.getValue()));
+    }
+
+    private void setOptionDisabled(int idx, boolean disabled) {
+        Widget w = gameOptionWidgets.get(idx);
+        if (w instanceof CheckBox cb) {
+            if (disabled) cb.setValue(false);
+            cb.setEnabled(!disabled);
+        }
+        // Row index is offset by 1 because index 0 is the section heading.
+        Widget row = gameSpecificOptionsPanel.getWidget(idx + 1);
+        if (disabled) row.addStyleName("option-disabled");
+        else          row.removeStyleName("option-disabled");
     }
 
     public HashMap<String, String> collectGameOptions() {
