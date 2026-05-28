@@ -16,6 +16,7 @@ public class GameOption implements IsSerializable {
     private Integer minValue;
     private Integer maxValue;
     private boolean adminOnly;
+    private ArrayList<String> incompatibleWith;
 
     public GameOption() {}
 
@@ -51,4 +52,7 @@ public class GameOption implements IsSerializable {
 
     public boolean isAdminOnly() { return adminOnly; }
     public void setAdminOnly(boolean adminOnly) { this.adminOnly = adminOnly; }
+
+    public ArrayList<String> getIncompatibleWith() { return incompatibleWith; }
+    public void setIncompatibleWith(ArrayList<String> incompatibleWith) { this.incompatibleWith = incompatibleWith; }
 }

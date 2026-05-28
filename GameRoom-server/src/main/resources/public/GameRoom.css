@@ -271,6 +271,12 @@ td, th, span, p, div, label {
   border-bottom: none;
 }
 
+.game-options-field-inline.option-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Checkbox spans both columns so description falls below it */
 .game-options-field-inline:has(.game-options-checkbox) > .game-options-checkbox {
   grid-column: 1 / -1;
