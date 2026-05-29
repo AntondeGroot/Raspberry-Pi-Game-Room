@@ -306,6 +306,10 @@ public class LobbyPresenter implements Presenter {
                 public void onResponseReceived(Request request, Response response) {
                     if (response.getStatusCode() == Response.SC_OK) {
                         view.setAdminMode(true);
+                        updateRoomTable(); // re-render in case SSE already populated the table
+                    } else if (Cookie.hasAdminHint()) {
+                        // Session expired but this browser has logged in before — show the shortcut
+                        view.showAdminLoginHintButton();
                     }
                 }
                 @Override

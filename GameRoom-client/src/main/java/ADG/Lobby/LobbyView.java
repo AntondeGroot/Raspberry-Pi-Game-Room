@@ -45,6 +45,8 @@ public class LobbyView extends Composite {
         void onRemovePlayer(Room room, String playerId, String playerName);
     }
 
+    private Button adminLoginHintButton;
+
     private JoinHandler joinHandler;
     private DeleteHandler deleteHandler;
     private RemovePlayerHandler removePlayerHandler;
@@ -54,6 +56,13 @@ public class LobbyView extends Composite {
 
     public LobbyView() {
         initWidget(uiBinder.createAndBindUi(this));
+        // Admin login hint button — sits on the left of the top bar; hidden until
+        // the admin_hint cookie is detected (set on successful admin login).
+        adminLoginHintButton = new Button("🔐 Login");
+        adminLoginHintButton.setStylePrimaryName("adminLoginHintButton");
+        adminLoginHintButton.setVisible(false);
+        adminLoginHintButton.addClickHandler(e -> Window.Location.assign("/login"));
+        langSelectorRow.add(adminLoginHintButton);
         langSelectorRow.add(new LanguageSelectorWidget());
         lobbyTitle.setHTML("<h1>" + I18n.c().gameLobby() + "</h1>");
         createRoomTitle.setHTML("<h2 class=\"section-title\">" + I18n.c().createARoom() + "</h2>");
@@ -92,6 +101,10 @@ public class LobbyView extends Composite {
 
     public void setAdminMode(boolean adminMode) {
         this.adminMode = adminMode;
+    }
+
+    public void showAdminLoginHintButton() {
+        adminLoginHintButton.setVisible(true);
     }
 
     public void setCurrentPlayerId(String playerId) {
