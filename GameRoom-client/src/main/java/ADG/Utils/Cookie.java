@@ -9,11 +9,21 @@ import java.util.Date;
 
 public class Cookie {
 
-    private static final String PLAYERID  = "playerid";
-    private static final String USERNAME  = "username";
-    private static final String LANGUAGE  = "language";
+    private static final String PLAYERID   = "playerid";
+    private static final String USERNAME   = "username";
+    private static final String LANGUAGE   = "language";
+    private static final String ADMIN_HINT = "admin_hint";
 
     private static final long MILLIS_400_DAYS = 400L * 24L * 60L * 60L * 1000L;
+
+    /**
+     * Returns true when the {@code admin_hint} cookie is present.
+     * The server sets this cookie on a successful admin login so that the lobby
+     * can show a "Login" shortcut even after the Spring Security session expires.
+     */
+    public static boolean hasAdminHint() {
+        return "1".equals(Cookies.getCookie(ADMIN_HINT));
+    }
 
     public static String getPlayerId(){
         createPlayerIdCookie();

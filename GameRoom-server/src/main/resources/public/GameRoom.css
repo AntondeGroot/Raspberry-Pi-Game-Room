@@ -1041,7 +1041,32 @@ td, th, span, p, div, label {
 .room-lang-row {
   display: flex;
   justify-content: right;
+  align-items: center;
   padding: 4px 0 8px;
+}
+
+/* Admin login shortcut — only visible when the admin_hint cookie is present
+   and the admin is not currently logged in. margin-right: auto pushes it to
+   the left edge of the flex row while the language selector stays right. */
+.adminLoginHintButton {
+  background: transparent;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-md);
+  color: rgba(148, 133, 192, 0.7);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  margin-right: auto;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.adminLoginHintButton:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #c4b5fd;
 }
 
 .lang-selector-container {
