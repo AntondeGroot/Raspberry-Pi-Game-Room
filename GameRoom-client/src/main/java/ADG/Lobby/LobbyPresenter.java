@@ -336,12 +336,11 @@ public class LobbyPresenter implements Presenter {
             rb.sendRequest(null, new RequestCallback() {
                 @Override
                 public void onResponseReceived(Request request, Response response) {
-                    if (response.getStatusCode() == Response.SC_NO_CONTENT) {
-                        // Table updates on next poll automatically
-                    } else if (response.getStatusCode() == Response.SC_UNAUTHORIZED
-                               || response.getStatusCode() == Response.SC_FORBIDDEN) {
+                    // 204 No Content: success — the lobby SSE stream will push the updated list.
+                    if (response.getStatusCode() == Response.SC_UNAUTHORIZED
+                            || response.getStatusCode() == Response.SC_FORBIDDEN) {
                         view.showAlert(I18n.c().errNotAuthorised());
-                    } else {
+                    } else if (response.getStatusCode() != Response.SC_NO_CONTENT) {
                         view.showAlert(I18n.m().errDeleteFailedHttp(response.getStatusCode()));
                     }
                 }
