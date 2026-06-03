@@ -10,6 +10,9 @@ public class GameDefinition implements IsSerializable {
     private String healthUrl;
     private int minPlayers;
     private int maxPlayers;
+    /** True when the game server exposes a /settings?embed=1 page that can be
+     *  shown in an iframe inside the GameOptions dialog. */
+    private boolean embeddedSettings = false;
 
     public GameDefinition() {}
 
@@ -27,6 +30,9 @@ public class GameDefinition implements IsSerializable {
 
     public int getMinPlayers() { return minPlayers; }
     public void setMinPlayers(int minPlayers) { this.minPlayers = minPlayers; }
+
+    public boolean isEmbeddedSettings() { return embeddedSettings; }
+    public void setEmbeddedSettings(boolean embeddedSettings) { this.embeddedSettings = embeddedSettings; }
 
     public int getMaxPlayers() { return maxPlayers; }
     public void setMaxPlayers(int maxPlayers) { this.maxPlayers = maxPlayers; }

@@ -12,3 +12,4 @@ games:
       healthUrl: http://localhost:80/qwixx/
       minPlayers: 1
       maxPlayers: 5
+      embeddedSettings: true
