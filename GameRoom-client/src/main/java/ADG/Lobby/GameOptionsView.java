@@ -3,6 +3,7 @@ package ADG.Lobby;
 import ADG.Utils.LanguageSelectorWidget;
 import ADG.i18n.I18n;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.http.client.URL;
 import com.google.gwt.json.client.JSONObject;
 import com.google.gwt.json.client.JSONParser;
@@ -17,9 +18,12 @@ import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.Frame;
 import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.Widget;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 public class GameOptionsView extends Composite {
 
@@ -34,6 +38,7 @@ public class GameOptionsView extends Composite {
     @UiField Label     maxPlayersLabel;
     @UiField TextBox   maxPlayersInput;
     @UiField Label     maxPlayersRangeHint;
+    @UiField FlowPanel gameSpecificOptionsPanel;
     @UiField Frame     gameSettingsFrame;
     @UiField Button    confirmButton;
     @UiField Button    cancelButton;
@@ -41,11 +46,14 @@ public class GameOptionsView extends Composite {
     private int minBound;
     private int maxBound;
 
-    /**
-     * Last game-specific options received from the embedded game settings iframe
-     * via postMessage. Null when no iframe is shown.
-     */
+    /** Last options received from the embedded iframe via postMessage. Null when no iframe shown. */
     private HashMap<String, String> iframeOptions = null;
+
+    // ── Generic (non-iframe) option widgets ───────────────────────────────────
+    private ArrayList<GameOption> renderedOptions = new ArrayList<>();
+    private final Map<String, CheckBox> booleanWidgets = new HashMap<>();
+    private final Map<String, TextBox>  integerWidgets = new HashMap<>();
+    private final Map<String, ListBox>  enumWidgets    = new HashMap<>();
 
     public GameOptionsView() {
         initWidget(uiBinder.createAndBindUi(this));
@@ -143,6 +151,128 @@ public class GameOptionsView extends Composite {
 
     public Button getConfirmButton() { return confirmButton; }
     public Button getCancelButton()  { return cancelButton; }
+
+    // ── Generic option widgets (fallback for games without embedded settings) ──
+
+    /**
+     * Renders game-specific options as generic GWT widgets (checkbox for BOOLEAN,
+     * text input for INTEGER, drop-down for ENUM). Pre-populates each widget with
+     * the value in {@code currentValues} when present, falling back to the
+     * option's declared {@code defaultValue}.
+     */
+    public void showGameSpecificOptions(ArrayList<GameOption> options,
+                                        HashMap<String, String> currentValues) {
+        gameSpecificOptionsPanel.clear();
+        booleanWidgets.clear();
+        integerWidgets.clear();
+        enumWidgets.clear();
+        renderedOptions = (options != null) ? options : new ArrayList<>();
+
+        if (renderedOptions.isEmpty()) {
+            gameSpecificOptionsPanel.setVisible(false);
+            return;
+        }
+
+        for (GameOption option : renderedOptions) {
+            if (option.isAdminOnly()) continue;
+            String currentVal = (currentValues != null) ? currentValues.get(option.getKey()) : null;
+            String effectiveVal = (currentVal != null) ? currentVal : option.getDefaultValue();
+            String label = (option.getLabel() != null && !option.getLabel().isEmpty())
+                    ? option.getLabel() : option.getKey();
+            String type = option.getType();
+
+            if ("BOOLEAN".equals(type)) {
+                CheckBox cb = new CheckBox(label);
+                cb.addStyleName("game-options-checkbox");
+                cb.setValue(Boolean.parseBoolean(effectiveVal));
+                booleanWidgets.put(option.getKey(), cb);
+                gameSpecificOptionsPanel.add(cb);
+
+            } else if ("INTEGER".equals(type)) {
+                FlowPanel row = new FlowPanel();
+                row.addStyleName("game-options-field-inline");
+                Label lbl = new Label(label);
+                lbl.addStyleName("game-options-label");
+                TextBox tb = new TextBox();
+                tb.addStyleName("game-options-number-input");
+                tb.setText(effectiveVal != null ? effectiveVal : "");
+                integerWidgets.put(option.getKey(), tb);
+                row.add(lbl);
+                row.add(tb);
+                if (option.getMinValue() != null && option.getMaxValue() != null) {
+                    Label hint = new Label("(" + option.getMinValue() + " – " + option.getMaxValue() + ")");
+                    hint.addStyleName("game-options-range-hint");
+                    row.add(hint);
+                }
+                gameSpecificOptionsPanel.add(row);
+
+            } else if ("ENUM".equals(type)) {
+                FlowPanel row = new FlowPanel();
+                row.addStyleName("game-options-field-inline");
+                Label lbl = new Label(label);
+                lbl.addStyleName("game-options-label");
+                ListBox lb = new ListBox();
+                lb.addStyleName("game-options-select");
+                if (option.getChoices() != null) {
+                    int selectedIdx = 0;
+                    for (int i = 0; i < option.getChoices().size(); i++) {
+                        String choice = option.getChoices().get(i);
+                        lb.addItem(choice, choice);
+                        if (choice.equals(effectiveVal)) selectedIdx = i;
+                    }
+                    lb.setSelectedIndex(selectedIdx);
+                }
+                enumWidgets.put(option.getKey(), lb);
+                row.add(lbl);
+                row.add(lb);
+                gameSpecificOptionsPanel.add(row);
+            }
+        }
+
+        // Wire up mutual-exclusion: when a BOOLEAN option is enabled, disable
+        // any incompatible BOOLEAN options so only one can be active at a time.
+        for (final GameOption option : renderedOptions) {
+            if (option.getIncompatibleWith() == null) continue;
+            final CheckBox cb = booleanWidgets.get(option.getKey());
+            if (cb == null) continue;
+            final ArrayList<String> incompatibles = option.getIncompatibleWith();
+            cb.addValueChangeHandler(event -> {
+                if (Boolean.TRUE.equals(event.getValue())) {
+                    for (String otherKey : incompatibles) {
+                        CheckBox other = booleanWidgets.get(otherKey);
+                        if (other != null) other.setValue(false);
+                    }
+                }
+            });
+        }
+
+        gameSpecificOptionsPanel.setVisible(true);
+    }
+
+    /**
+     * Reads the current values out of the generic option widgets and returns
+     * them as a {@code key → stringified-value} map suitable for storing on the room.
+     */
+    public HashMap<String, String> collectGameOptions() {
+        HashMap<String, String> result = new HashMap<>();
+        for (GameOption option : renderedOptions) {
+            if (option.isAdminOnly()) continue;
+            String type = option.getType();
+            if ("BOOLEAN".equals(type)) {
+                CheckBox cb = booleanWidgets.get(option.getKey());
+                if (cb != null) result.put(option.getKey(), String.valueOf(cb.getValue()));
+            } else if ("INTEGER".equals(type)) {
+                TextBox tb = integerWidgets.get(option.getKey());
+                if (tb != null) result.put(option.getKey(), tb.getText().trim());
+            } else if ("ENUM".equals(type)) {
+                ListBox lb = enumWidgets.get(option.getKey());
+                if (lb != null && lb.getSelectedIndex() >= 0) {
+                    result.put(option.getKey(), lb.getValue(lb.getSelectedIndex()));
+                }
+            }
+        }
+        return result;
+    }
 
     // ── postMessage bridge ────────────────────────────────────────────────────
 

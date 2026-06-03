@@ -36,6 +36,7 @@ public class RoomPresenter implements Presenter {
     private boolean playerListInitialized = false;
     private boolean isAdmin = false;
     private String knownGameId = null;
+    private ArrayList<GameDefinition> availableGames = new ArrayList<>();
     private ArrayList<GameOption> gameOptionDefs = new ArrayList<>();
     private HashMap<String, String> knownGameOptions = new HashMap<>();
     private boolean knownAnyPlayerCanSelectGame = false;
@@ -130,6 +131,11 @@ public class RoomPresenter implements Presenter {
                 GWT.log("Failed to load games for room: " + t.getMessage());
             }
             @Override public void onSuccess(ArrayList<GameDefinition> games) {
+                availableGames = games;
+                // Eagerly sync embeddedSettings for the currently selected game.
+                // This callback completes before the game selector is visible, so
+                // room.embeddedSettings is correct by the time Options can be clicked.
+                syncEmbeddedSettingsFromDefs(knownGameId);
                 roomView.populateGameSelector(games);
                 roomView.setSelectedGame(knownGameId);
                 if (knownGameId != null) {
@@ -154,7 +160,26 @@ public class RoomPresenter implements Presenter {
 
     private void onOptionsButtonClicked() {
         room.setGameOptions(new HashMap<>(knownGameOptions));
+        syncEmbeddedSettingsFromDefs(knownGameId); // belt-and-suspenders: ensure flag is current
         presenterManager.switchToGameOptions(room);
+    }
+
+    /**
+     * Looks up the GameDefinition for {@code gameId} in the already-loaded
+     * {@code availableGames} list and updates {@code room.embeddedSettings}
+     * accordingly. No-op when the list hasn't loaded yet or the id isn't found.
+     */
+    private void syncEmbeddedSettingsFromDefs(String gameId) {
+        for (GameDefinition gameDef : availableGames) {
+            if (Objects.equals(gameDef.getId(), gameId)) {
+                GWT.log("[RoomPresenter] syncEmbeddedSettings: gameId=" + gameId
+                        + " embeddedSettings=" + gameDef.isEmbeddedSettings());
+                room.setEmbeddedSettings(gameDef.isEmbeddedSettings());
+                return;
+            }
+        }
+        GWT.log("[RoomPresenter] syncEmbeddedSettings: no match for gameId=" + gameId
+                + " (availableGames.size=" + availableGames.size() + ")");
     }
 
     private void onPermissionChanged() {
@@ -378,6 +403,7 @@ public class RoomPresenter implements Presenter {
         room.setAnyPlayerCanSelectGame(updatedRoom.isAnyPlayerCanSelectGame());
         room.setAnyPlayerCanSetOptions(updatedRoom.isAnyPlayerCanSetOptions());
         room.setRoomPassword(updatedRoom.getRoomPassword());
+        room.setEmbeddedSettings(updatedRoom.isEmbeddedSettings());
         knownPasswordRequired = updatedRoom.hasPassword();
         roomView.updatePasswordDisplay(updatedRoom.getRoomPassword());
 
@@ -435,6 +461,10 @@ public class RoomPresenter implements Presenter {
         JSONValue pwdVal = obj.get("roomPassword");
         if (pwdVal != null && pwdVal.isString() != null) {
             r.setRoomPassword(pwdVal.isString().stringValue());
+        }
+        JSONValue embeddedVal = obj.get("embeddedSettings");
+        if (embeddedVal != null && embeddedVal.isBoolean() != null) {
+            r.setEmbeddedSettings(embeddedVal.isBoolean().booleanValue());
         }
         return r;
     }

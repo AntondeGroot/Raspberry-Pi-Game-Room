@@ -25,6 +25,9 @@ public class Room implements IsSerializable {
     private boolean anyPlayerCanSelectGame = false;
     private boolean anyPlayerCanSetOptions = false;
     private String roomPassword = null;
+    /** Copied from GameDefinition when a game is selected; true when the game
+     *  exposes a /settings?embed=1 page for the options dialog iframe. */
+    private boolean embeddedSettings = false;
 
     public Room() {} // Default constructor
 
@@ -165,6 +168,9 @@ public class Room implements IsSerializable {
     public void setRoomPassword(String roomPassword) { this.roomPassword = roomPassword; }
     public boolean hasPassword() { return roomPassword != null && !roomPassword.isEmpty(); }
 
+    public boolean isEmbeddedSettings() { return embeddedSettings; }
+    public void setEmbeddedSettings(boolean embeddedSettings) { this.embeddedSettings = embeddedSettings; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -186,14 +192,15 @@ public class Room implements IsSerializable {
                 && Objects.equals(gameOptions, room.gameOptions)
                 && anyPlayerCanSelectGame == room.anyPlayerCanSelectGame
                 && anyPlayerCanSetOptions == room.anyPlayerCanSetOptions
-                && Objects.equals(roomPassword, room.roomPassword);
+                && Objects.equals(roomPassword, room.roomPassword)
+                && embeddedSettings == room.embeddedSettings;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, createdByUserId, name, status, playerIds, playerNames,
                 playerProfiles, gameId, gameSessionId, gameBaseUrl, minPlayers, maxPlayers, uniqueProfilePics, gameOptions,
-                anyPlayerCanSelectGame, anyPlayerCanSetOptions, roomPassword);
+                anyPlayerCanSelectGame, anyPlayerCanSetOptions, roomPassword, embeddedSettings);
     }
 
     @Override

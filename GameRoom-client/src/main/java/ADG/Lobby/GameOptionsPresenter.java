@@ -9,6 +9,7 @@ import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.shared.HandlerRegistration;
 import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class GameOptionsPresenter implements Presenter {
@@ -34,25 +35,68 @@ public class GameOptionsPresenter implements Presenter {
         confirmReg = view.getConfirmButton().addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); onConfirm(); });
         cancelReg  = view.getCancelButton().addClickHandler(e -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); onCancel(); });
 
-        // Embed the game's own settings UI in an iframe so it can render its
-        // native visuals (option chips, sheet preview, etc.).
-        // The iframe pushes option changes back to this page via postMessage.
-        String baseUrl = resolvePublicBaseUrl();
-        if (baseUrl != null) {
-            view.showGameSettingsFrame(baseUrl, Cookie.getLanguage().name().toLowerCase(),
-                    room.getGameOptions());
+        GWT.log("[GameOptions] gameId=" + room.getGameId()
+                + " embedded=" + room.isEmbeddedSettings()
+                + " baseUrl=" + room.getGameBaseUrl());
+
+        if (room.isEmbeddedSettings()) {
+            // The game server exposes /settings?embed=1 — embed it in an iframe.
+            // The iframe posts option changes back to this page via postMessage.
+            String baseUrl = resolvePublicBaseUrl();
+            GWT.log("[GameOptions] resolvedUrl=" + baseUrl);
+            if (baseUrl != null) {
+                view.showGameSettingsFrame(baseUrl, Cookie.getLanguage().name().toLowerCase(),
+                        room.getGameOptions());
+            } else {
+                // URL could not be resolved — fall back to generic widgets.
+                GWT.log("[GameOptions] WARNING: baseUrl null despite embeddedSettings=true, falling back to generic options");
+                loadGenericOptions();
+            }
+        } else {
+            // No embedded settings page: fetch the option definitions and render
+            // them using generic GWT widgets (checkbox, number input, drop-down).
+            loadGenericOptions();
         }
     }
 
-    /** Returns the public base URL for the game, or null if none is available. */
+    private void loadGenericOptions() {
+        String gameId = room.getGameId();
+        if (gameId == null || gameId.isEmpty()) return;
+        roomService.getGameOptions(gameId, new AsyncCallback<ArrayList<GameOption>>() {
+            @Override public void onFailure(Throwable t) {
+                if (stopped) return;
+                GWT.log("Failed to fetch game options: " + t.getMessage());
+                // Proceed without options — user can still adjust room settings.
+            }
+            @Override public void onSuccess(ArrayList<GameOption> options) {
+                if (stopped) return;
+                view.showGameSpecificOptions(options, room.getGameOptions());
+            }
+        });
+    }
+
+    /**
+     * Returns the browser-accessible base URL for the game's settings iframe.
+     *
+     * The gameBaseUrl is typically an internal address (e.g. localhost:4300) that
+     * the browser cannot reach directly — and must not be used as-is on an HTTPS
+     * page (mixed-content block). Instead, we always derive the public URL from
+     * the current page's origin so the iframe goes through the same reverse proxy
+     * that serves the main app (e.g. nginx routes /qwixx/ → localhost:4300).
+     *
+     * Exception: if gameBaseUrl is an already-public external URL (no "localhost"),
+     * use it directly — that covers deployments where the game is on its own domain.
+     */
     private String resolvePublicBaseUrl() {
         String base = room.getGameBaseUrl();
         if (base != null && !base.isEmpty() && !base.contains("localhost")) {
+            // External URL — safe to use directly (same-protocol assumed).
             return base;
         }
+        // Internal / localhost address: derive the public URL from the current
+        // page's origin so the request goes through the reverse proxy.
         String gameId = room.getGameId();
         if (gameId != null && !gameId.isEmpty()) {
-            // Derive the URL from the current page's origin
             String protocol = Window.Location.getProtocol();
             String host = Window.Location.getHost();
             return protocol + "//" + host + "/" + gameId;
@@ -63,7 +107,9 @@ public class GameOptionsPresenter implements Presenter {
     @Override
     public void stop() {
         stopped = true;
-        view.tearDownMessageListener();
+        if (room.isEmbeddedSettings()) {
+            view.tearDownMessageListener();
+        }
         if (confirmReg != null) { confirmReg.removeHandler(); confirmReg = null; }
         if (cancelReg  != null) { cancelReg.removeHandler();  cancelReg  = null; }
     }
@@ -77,12 +123,17 @@ public class GameOptionsPresenter implements Presenter {
         room.setMaxPlayers(maxPlayers);
         room.setUniqueProfilePics(view.isUniqueProfilePics());
 
-        // Use the options received from the game's own settings iframe.
-        // Fall back to whatever was already stored on the room if the iframe
-        // hasn't posted anything yet (e.g., user opened and immediately confirmed).
-        HashMap<String, String> gameOpts = view.getIframeOptions();
-        if (gameOpts != null) {
-            room.setGameOptions(gameOpts);
+        // Collect game-specific options from whichever input mechanism is active.
+        if (room.isEmbeddedSettings()) {
+            // Options come from the iframe via postMessage. Fall back to the room's
+            // existing options if the iframe hasn't posted anything yet.
+            HashMap<String, String> gameOpts = view.getIframeOptions();
+            if (gameOpts != null) {
+                room.setGameOptions(gameOpts);
+            }
+        } else {
+            // Options come from the generic GWT widgets rendered by showGameSpecificOptions.
+            room.setGameOptions(view.collectGameOptions());
         }
 
         GWT.log("Updating room with ID: " + room.getId());

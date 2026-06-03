@@ -377,6 +377,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             found.setMinPlayers(game.getMinPlayers());
             found.setMaxPlayers(game.getMaxPlayers());
             found.setGameBaseUrl(game.getBaseUrl());
+            found.setEmbeddedSettings(game.isEmbeddedSettings());
         });
         emitRoomUpdate(roomId);
         emitLobbyUpdate();
